@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>文字表情設計器 (GitHub素材版)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Microsoft JhengHei, sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f7f9fc; padding: 20px; }
+        h2 { color: #333; }
+        .app-container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; max-width: 1200px; }
+        
+        /* 1. 合成畫布區域 */
+        .canvas-section { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); border: 1px solid #ddd; display: flex; flex-direction: column; align-items: center;}
+        .canvas-container { border: 2px dashed #007bff; background: #fff; cursor: crosshair; }
+
+        /* 2. 素材庫區域 */
+        .library-section { background: white; padding: 15px; border-radius: 12px; border: 1px solid #ddd; width: 350px; max-height: 500px; overflow-y: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .library-section h3 { text-align: center; margin-bottom: 15px; color: #555; }
+        .category-tab { display: flex; gap: 5px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #eee; justify-content: center; }
+        .tab-btn { padding: 8px 15px; cursor: pointer; background: #eee; border: none; border-radius: 5px; transition: background 0.2s; font-size: 14px;}
+        .tab-btn.active { background: #007bff; color: white; }
+        .asset-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; display: none; } /* 預設隱藏所有 */
+        .asset-grid.active { display: grid; } /* 只有 active 的分類顯示 */
+        .sticker-btn { border: 1px solid #eee; border-radius: 8px; cursor: pointer; transition: 0.2s; background: white; width: 65px; height: 65px; padding: 5px; object-fit: contain; }
+        .sticker-btn:hover { transform: scale(1.05); border-color: #007bff; box-shadow: 0 2px 5px rgba(0,123,255,0.3); }
+
+        /* 3. 操作區域 */
+        .action-btns { margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;}
+        .btn { padding: 12px 24px; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: background 0.2s; }
+        .btn-blue { background: #007bff; }
+        .btn-blue:hover { background: #0056b3; }
+        .btn-red { background: #dc3545; }
+        .btn-red:hover { background: #c82333; }
+        
+        .hint { color: #666; font-size: 14px; margin-top: 15px; max-width: 500px; text-align: center; line-height: 1.5; }
+        .loading-text { text-align: center; color: #999; font-style: italic; grid-column: span 4; }
+    </style>
+</head>
+<body>
+
+    <h2>🎨 文字表情設計器 (GitHub素材版)</h2>
+    
+    <div class="app-container">
+        <div class="canvas-section">
+            <canvas id="c" width="400" height="400"></canvas>
+            <div class="action-btns">
+                <button class="btn btn-blue" onclick="downloadImage()">下載為 PNG</button>
+                <button class="btn btn-red" onclick="clearCanvas()">清空重新開始</button>
+            </div>
+            <p class="hint">💡 點擊畫布上的「早安」文字或貼紙，可進行「拖曳、縮放、旋轉」。<br>選中貼紙後按 Delete 或 Backspace 鍵可刪除。</p>
+        </div>
+
+        <div class="library-section">
+            <h3>素材庫 (自動載入中...)</h3>
+            <div class="category-tab">
+                <button class="tab-btn active" onclick="showCategory('ears')">耳朵</button>
+                <button class="tab-btn" onclick="showCategory('eyes')">眼睛</button>
+                <button class="tab-btn" onclick="showCategory('mouths')">嘴巴</button>
+                <button class="tab-btn" onclick="showCategory('noses')">鼻子</button>
+            </div>
+            
+            <div id="ears" class="asset-grid active">
+                <p class="loading-text">正在載入耳朵素材...</p>
+            </div>
+            <div id="eyes" class="asset-grid">
+                <p class="loading-text">正在載入眼睛素材...</p>
+            </div>
+            <div id="mouths" class="asset-grid">
+                <p class="loading-text">正在載入嘴巴素材...</p>
+            </div>
+            <div id="noses" class="asset-grid">
+                <p class="loading-text">正在載入鼻子素材...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 設定：您的 GitHub 資訊 ---
+        const ghUser = 'xxz14701';
+        const ghRepo = 'addpic02';
+        const ghBranch = 'main'; // 您的圖片所在的 branch
+        // GitHub Pages 的基礎網址
+        const baseGhPagesUrl = `https://${ghUser}.github.io/${ghRepo}/images/`;
+
+        // --- 1. 初始化畫布 ---
+        const canvas = new fabric.Canvas('c');
+        canvas.setBackgroundColor('#ffffff'); // 設定白色背景
+
+        // --- 2. 預設加入文字「早安」 ---
+        const initialText = new fabric.IText('早安', {
+            left: 100, 
+            top: 100,
+            fontSize: 100,
+            fontFamily: 'Microsoft JhengHei, sans-serif',
+            fill: '#007bff', // 藍色
+            fontWeight: 'bold',
+            strokeWidth: 0, 
+            selectable: true // 文字也可以移動
+        });
+        canvas.add(initialText);
+
+        // --- 3. 核心功能：從您的 GitHub 自動載入圖片 ---
+        
+        // 此函數會使用 GitHub API 來獲取 images 資料夾下的檔案列表
+        async function fetchAssetsFromGithub() {
+            // 定義需要載入的分類及其對應的 GitHub 資料夾路徑
+            const categories = [
+                { id: 'ears', path: 'images/ears' },
+                { id: 'eyes', path: 'images/eyes' },
+                { id: 'mouths', path: 'images/mouths' },
+                { id: 'noses', path: 'images/noses' }
+            ];
+
+            for (const cat of categories) {
+                try {
+                    // 使用 GitHub API 獲取資料夾內容
+                    const apiUrl = `https://api.github.com/repos/${ghUser}/${ghRepo}/contents/${cat.path}?ref=${ghBranch}`;
+                    const response = await fetch(apiUrl);
+                    
+                    if (!response.ok) throw new Error(`無法從 GitHub 獲取 ${cat.id} 列表`);
+                    
+                    const files = await response.json();
+                    const grid = document.getElementById(cat.id);
+                    grid.innerHTML = ''; // 清空加載中文字
+
+                    // 篩選出 PNG 圖片並生成按鈕
+                    files.filter(file => file.name.endsWith('.png')).forEach(file => {
+                        // 使用您 GitHub Pages 的原始圖片連結
+                        const imgUrl = `${baseGhPagesUrl}${cat.id}/${file.name}`;
+                        
+                        const imgBtn = document.createElement('img');
+                        imgBtn.src = imgUrl;
+                        imgBtn.className = 'sticker-btn';
+                        imgBtn.title = `加入 ${cat.id} - ${file.name}`;
+                        imgBtn.onclick = () => addSticker(imgUrl); // 點擊加入畫布
+                        
+                        grid.appendChild(imgBtn);
+                    });
+                    
+                    console.log(`成功載入 ${cat.id} 分類下的圖片`);
+
+                } catch (error) {
+                    console.error(`載入 ${cat.id} 素材時出錯:`, error);
+                    const grid = document.getElementById(cat.id);
+                    grid.innerHTML = `<p class="loading-text" style="color:red;">載入失敗，請檢查 GitHub 頁面設定。</p>`;
+                }
+            }
+            
+            // 載入完成後更新標題
+            document.querySelector('.library-section h3').innerText = '素材庫 (共 48 張圖片)';
+        }
+
+        // --- 4. 函數：將貼紙圖片加入畫布 ---
+        function addSticker(imgUrl) {
+            fabric.Image.fromURL(imgUrl, function(img) {
+                // 調整貼紙初始大小，讓它比文字小
+                img.scale(0.3); 
+                
+                // 設定貼紙放置位置在畫布中央
+                img.set({
+                    left: 150,
+                    top: 150,
+                    cornerColor: '#007bff', // 控制點顏色
+                    cornerSize: 10,       // 控制點大小
+                    transparentCorners: false, // 控制點不透明
+                    padding: 5,           // 控制點與圖片的距離
+                    borderColor: '#ccc',  // 選中時的框線顏色
+                });
+                
+                // 將貼紙加入畫布，並將其設為當前選中物件
+                canvas.add(img);
+                canvas.setActiveObject(img); 
+                canvas.renderAll();
+            }, { crossOrigin: 'anonymous' }); // 核心：處理跨網域圖片加載問題
+        }
+
+        // --- 5. 函數：下載合成後的圖片 ---
+        function downloadImage() {
+            // 生成高品質的 DataURL
+            const dataURL = canvas.toDataURL({
+                format: 'png',
+                quality: 1,
+                multiplier: 2 // 乘數，生成更高的解析度 (800x800)
+            });
+            const link = document.createElement('a');
+            link.download = 'my-creative-text.png';
+            link.href = dataURL;
+            link.click();
+        }
+
+        // --- 6. 函數：清空畫布，還原文字 ---
+        function clearCanvas() {
+            canvas.clear();
+            canvas.add(initialText);
+            canvas.setBackgroundColor('#ffffff');
+            canvas.renderAll();
+        }
+
+        // --- 7. 監聽鍵盤：選中物件後按 Delete 或 Backspace 鍵刪除 ---
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                const activeObjects = canvas.getActiveObjects();
+                if (activeObjects.length > 0) {
+                    // 確認選中的不是預設文字 (防止意外刪除預設文字)
+                    if (activeObjects[0].type !== 'i-text' || activeObjects[0].text !== '早安') {
+                        canvas.discardActiveObject(); // 取消選中
+                        canvas.remove(...activeObjects); // 刪除選中物件
+                        canvas.renderAll();
+                    }
+                }
+            }
+        });
+
+        // --- 8. 函數：顯示不同類型的素材 (選單切換) ---
+        function showCategory(categoryId) {
+            const categories = document.querySelectorAll('.asset-grid');
+            categories.forEach(cat => cat.classList.remove('active')); // 先隱藏所有
+
+            document.getElementById(categoryId).classList.add('active'); // 顯示選定的
+
+            const tabs = document.querySelectorAll('.tab-btn');
+            tabs.forEach(tab => tab.classList.remove('active')); // 取消所有 tab 的 active
+            
+            // 將點擊的 tab 設為 active
+            event.target.classList.add('active'); 
+        }
+
+        // --- 9. 網頁載入完成後自動執行素材載入 ---
+        window.onload = fetchAssetsFromGithub;
+    </script>
+</body>
+</html>
