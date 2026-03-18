@@ -2,231 +2,485 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>文字表情設計器 (GitHub素材版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>創意表情設計</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Microsoft JhengHei, sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f7f9fc; padding: 20px; }
-        h2 { color: #333; }
-        .app-container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; max-width: 1200px; }
-        
-        /* 1. 合成畫布區域 */
-        .canvas-section { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); border: 1px solid #ddd; display: flex; flex-direction: column; align-items: center;}
-        .canvas-container { border: 2px dashed #007bff; background: #fff; cursor: crosshair; }
+        :root {
+            --primary: #4f46e5;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #d97706;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --text: #0f172a;
+        }
 
-        /* 2. 素材庫區域 */
-        .library-section { background: white; padding: 15px; border-radius: 12px; border: 1px solid #ddd; width: 350px; max-height: 500px; overflow-y: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .library-section h3 { text-align: center; margin-bottom: 15px; color: #555; }
-        .category-tab { display: flex; gap: 5px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #eee; justify-content: center; }
-        .tab-btn { padding: 8px 15px; cursor: pointer; background: #eee; border: none; border-radius: 5px; transition: background 0.2s; font-size: 14px;}
-        .tab-btn.active { background: #007bff; color: white; }
-        .asset-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; display: none; } /* 預設隱藏所有 */
-        .asset-grid.active { display: grid; } /* 只有 active 的分類顯示 */
-        .sticker-btn { border: 1px solid #eee; border-radius: 8px; cursor: pointer; transition: 0.2s; background: white; width: 65px; height: 65px; padding: 5px; object-fit: contain; }
-        .sticker-btn:hover { transform: scale(1.05); border-color: #007bff; box-shadow: 0 2px 5px rgba(0,123,255,0.3); }
+        body {
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* 防止手機誤觸縮放 */
+            touch-action: manipulation;
+        }
 
-        /* 3. 操作區域 */
-        .action-btns { margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;}
-        .btn { padding: 12px 24px; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: background 0.2s; }
-        .btn-blue { background: #007bff; }
-        .btn-blue:hover { background: #0056b3; }
-        .btn-red { background: #dc3545; }
-        .btn-red:hover { background: #c82333; }
+        .header { text-align: center; margin-bottom: 20px; width: 100%; }
+        .header h1 { margin: 0; font-size: 28px; color: var(--primary); }
+        .header p { color: #475569; margin-top: 5px; font-size: 16px; font-weight: 500; }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1100px;
+            width: 100%;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* 畫布區域 */
+        .canvas-section {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            min-width: 380px;
+        }
+
+        .canvas-wrapper {
+            border: 4px solid #e2e8f0;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            background-image: 
+                linear-gradient(45deg, #f8fafc 25%, transparent 25%), 
+                linear-gradient(-45deg, #f8fafc 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #f8fafc 75%), 
+                linear-gradient(-45deg, transparent 75%, #f8fafc 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        /* 側邊控制欄 */
+        .sidebar {
+            width: 380px;
+            background: var(--card);
+            padding: 24px;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .step-box {
+            border: 2px solid #f1f5f9;
+            border-radius: 16px;
+            padding: 15px;
+            position: relative;
+        }
+
+        .step-label {
+            position: absolute;
+            top: -12px;
+            left: 15px;
+            background: var(--primary);
+            color: white;
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .control-label {
+            display: block;
+            font-weight: 800;
+            margin-bottom: 12px;
+            font-size: 18px;
+            color: #1e293b;
+            margin-top: 5px;
+        }
+
+        .input-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
         
-        .hint { color: #666; font-size: 14px; margin-top: 15px; max-width: 500px; text-align: center; line-height: 1.5; }
-        .loading-text { text-align: center; color: #999; font-style: italic; grid-column: span 4; }
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #cbd5e1;
+            border-radius: 12px;
+            font-size: 18px; /* 加大文字輸入 */
+        }
+        
+        input[type="color"] {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #cbd5e1;
+            border-radius: 12px;
+            cursor: pointer;
+            padding: 2px;
+        }
+
+        /* 素材標籤 */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            background: #f1f5f9;
+            padding: 5px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px 5px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            transition: 0.3s;
+            color: #64748b;
+        }
+
+        .tab.active { background: var(--primary); color: white; }
+
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            max-height: 250px;
+            overflow-y: auto;
+            padding: 5px;
+        }
+
+        .sticker-item {
+            aspect-ratio: 1;
+            border: 2px solid #f1f5f9;
+            border-radius: 12px;
+            cursor: pointer;
+            padding: 5px;
+            background: #fff;
+            transition: 0.2s;
+            width: 100%;
+        }
+
+        .sticker-item:hover { border-color: var(--primary); background: #eef2ff; }
+
+        /* 大按鈕樣式 */
+        .btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn:active { transform: translateY(2px); box-shadow: none; }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-outline { background: #fff; color: #475569; border: 2px solid #e2e8f0; }
+
+        .layer-controls { display: flex; gap: 10px; margin-bottom: 15px; width: 100%; }
+        
+        .mini-btn { 
+            flex: 1;
+            padding: 12px 5px; 
+            font-size: 14px; 
+            font-weight: bold;
+            border-radius: 12px; 
+            border: 2px solid #e2e8f0; 
+            background: white; 
+            cursor: pointer; 
+        }
+
+        .mini-btn.del { background: #fff1f2; color: var(--danger); border-color: #fecaca; }
+
+        #fileInput, #fontInput { display: none; }
+
+        /* 手機版適配 */
+        @media (max-width: 600px) {
+            .sidebar { width: 100%; padding: 15px; }
+            .canvas-section { min-width: 100%; padding: 10px; }
+            .header h1 { font-size: 24px; }
+            .main-container { gap: 10px; }
+            .btn { padding: 18px; font-size: 20px; } /* 手機上按鈕更大 */
+        }
     </style>
 </head>
 <body>
 
-    <h2>🎨 文字表情設計器 (GitHub素材版)</h2>
-    
-    <div class="app-container">
-        <div class="canvas-section">
-            <canvas id="c" width="400" height="400"></canvas>
-            <div class="action-btns">
-                <button class="btn btn-blue" onclick="downloadImage()">下載為 PNG</button>
-                <button class="btn btn-red" onclick="clearCanvas()">清空重新開始</button>
-            </div>
-            <p class="hint">💡 點擊畫布上的「早安」文字或貼紙，可進行「拖曳、縮放、旋轉」。<br>選中貼紙後按 Delete 或 Backspace 鍵可刪除。</p>
-        </div>
+    <div class="header">
+        <h1>創意貼圖</h1>
+        <p>簡單點選，做出漂亮的透明背景圖片</p>
+    </div>
 
-        <div class="library-section">
-            <h3>素材庫 (自動載入中...)</h3>
-            <div class="category-tab">
-                <button class="tab-btn active" onclick="showCategory('ears')">耳朵</button>
-                <button class="tab-btn" onclick="showCategory('eyes')">眼睛</button>
-                <button class="tab-btn" onclick="showCategory('mouths')">嘴巴</button>
-                <button class="tab-btn" onclick="showCategory('noses')">鼻子</button>
+    <div class="main-container">
+        <!-- 左側：製作區 -->
+        <div class="canvas-section">
+            <div class="layer-controls">
+                <button class="mini-btn" onclick="bringToFront()">🔼 移到最前面</button>
+                <button class="mini-btn" onclick="sendToBack()">🔽 移到最後面</button>
+                <button class="mini-btn del" onclick="deleteSelected()">🗑️ 刪除選中</button>
             </div>
             
-            <div id="ears" class="asset-grid active">
-                <p class="loading-text">正在載入耳朵素材...</p>
+            <div class="canvas-wrapper">
+                <canvas id="mainCanvas" width="370" height="320"></canvas>
             </div>
-            <div id="eyes" class="asset-grid">
-                <p class="loading-text">正在載入眼睛素材...</p>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                <button class="btn btn-success" onclick="exportImage()">💾 完成並存檔 (透明圖)</button>
+               
             </div>
-            <div id="mouths" class="asset-grid">
-                <p class="loading-text">正在載入嘴巴素材...</p>
+        </div>
+
+        <!-- 右側：控制區 -->
+        <div class="sidebar">
+            <!-- 第一步 -->
+            <div class="step-box">
+                <span class="step-label">第 1 步</span>
+                <label class="control-label">放上我的照片</label>
+                <button class="btn btn-primary" style="background-color: #0891b2;" onclick="triggerUpload()">📷 選取電腦/手機的照片</button>
+                <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)">
             </div>
-            <div id="noses" class="asset-grid">
-                <p class="loading-text">正在載入鼻子素材...</p>
+
+            <!-- 第二步 -->
+            <div class="step-box">
+                <span class="step-label">第 2 步</span>
+                <label class="control-label"></label>
+                <div class="input-row">
+                    <input type="text" id="textInput" value="早安" placeholder="在這裡打字..." onkeyup="updateActiveText()">
+                    <input type="color" id="textColor" value="#4f46e5" onchange="updateActiveText()">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <button class="btn btn-warning" onclick="triggerFontUpload()">🔠 換個漂亮字型</button>
+                    <input type="file" id="fontInput" accept=".ttf,.otf" onchange="handleFontUpload(event)">
+                </div>
+                <button class="btn btn-primary" onclick="addNewText()">➕ 再加一段文字</button>
+            </div>
+
+            <!-- 第三步 -->
+            <div class="step-box">
+                <span class="step-label">第 3 步</span>
+                <label class="control-label">加點可愛裝飾</label>
+                <div class="tabs">
+                    <div class="tab active" onclick="changeTab('ears', this)">耳朵</div>
+                    <div class="tab" onclick="changeTab('eyes', this)">眼睛</div>
+                    <div class="tab" onclick="changeTab('noses', this)">鼻子</div>
+                    <div class="tab" onclick="changeTab('mouths', this)">嘴巴</div>
+                </div>
+
+                <div id="asset-container" class="asset-grid">
+                    <!-- JS 自動生成 -->
+                </div>
+            </div>
+
+            <div style="font-size: 14px; color: #64748b; text-align: center; font-weight: bold; background: #f8fafc; padding: 10px; border-radius: 12px;">
+                Billy ^.^ | Program improved by AI @2026
             </div>
         </div>
     </div>
 
     <script>
-        // --- 設定：您的 GitHub 資訊 ---
-        const ghUser = 'xxz14701';
-        const ghRepo = 'addpic02';
-        const ghBranch = 'main'; // 您的圖片所在的 branch
-        // GitHub Pages 的基礎網址
-        const baseGhPagesUrl = `https://${ghUser}.github.io/${ghRepo}/images/`;
+        const config = {
+            user: 'xxz14701',
+            repo: 'addpic02',
+            basePath: 'images/',
+            pagesBase: 'https://xxz14701.github.io/addpic02/images/'
+        };
 
-        // --- 1. 初始化畫布 ---
-        const canvas = new fabric.Canvas('c');
-        canvas.setBackgroundColor('#ffffff'); // 設定白色背景
+        let canvas;
+        let customFontCount = 0;
 
-        // --- 2. 預設加入文字「早安」 ---
-        const initialText = new fabric.IText('早安', {
-            left: 100, 
-            top: 100,
-            fontSize: 100,
-            fontFamily: 'Microsoft JhengHei, sans-serif',
-            fill: '#007bff', // 藍色
-            fontWeight: 'bold',
-            strokeWidth: 0, 
-            selectable: true // 文字也可以移動
-        });
-        canvas.add(initialText);
-
-        // --- 3. 核心功能：從您的 GitHub 自動載入圖片 ---
-        
-        // 此函數會使用 GitHub API 來獲取 images 資料夾下的檔案列表
-        async function fetchAssetsFromGithub() {
-            // 定義需要載入的分類及其對應的 GitHub 資料夾路徑
-            const categories = [
-                { id: 'ears', path: 'images/ears' },
-                { id: 'eyes', path: 'images/eyes' },
-                { id: 'mouths', path: 'images/mouths' },
-                { id: 'noses', path: 'images/noses' }
-            ];
-
-            for (const cat of categories) {
-                try {
-                    // 使用 GitHub API 獲取資料夾內容
-                    const apiUrl = `https://api.github.com/repos/${ghUser}/${ghRepo}/contents/${cat.path}?ref=${ghBranch}`;
-                    const response = await fetch(apiUrl);
-                    
-                    if (!response.ok) throw new Error(`無法從 GitHub 獲取 ${cat.id} 列表`);
-                    
-                    const files = await response.json();
-                    const grid = document.getElementById(cat.id);
-                    grid.innerHTML = ''; // 清空加載中文字
-
-                    // 篩選出 PNG 圖片並生成按鈕
-                    files.filter(file => file.name.endsWith('.png')).forEach(file => {
-                        // 使用您 GitHub Pages 的原始圖片連結
-                        const imgUrl = `${baseGhPagesUrl}${cat.id}/${file.name}`;
-                        
-                        const imgBtn = document.createElement('img');
-                        imgBtn.src = imgUrl;
-                        imgBtn.className = 'sticker-btn';
-                        imgBtn.title = `加入 ${cat.id} - ${file.name}`;
-                        imgBtn.onclick = () => addSticker(imgUrl); // 點擊加入畫布
-                        
-                        grid.appendChild(imgBtn);
-                    });
-                    
-                    console.log(`成功載入 ${cat.id} 分類下的圖片`);
-
-                } catch (error) {
-                    console.error(`載入 ${cat.id} 素材時出錯:`, error);
-                    const grid = document.getElementById(cat.id);
-                    grid.innerHTML = `<p class="loading-text" style="color:red;">載入失敗，請檢查 GitHub 頁面設定。</p>`;
-                }
-            }
-            
-            // 載入完成後更新標題
-            document.querySelector('.library-section h3').innerText = '素材庫 (共 48 張圖片)';
-        }
-
-        // --- 4. 函數：將貼紙圖片加入畫布 ---
-        function addSticker(imgUrl) {
-            fabric.Image.fromURL(imgUrl, function(img) {
-                // 調整貼紙初始大小，讓它比文字小
-                img.scale(0.3); 
-                
-                // 設定貼紙放置位置在畫布中央
-                img.set({
-                    left: 150,
-                    top: 150,
-                    cornerColor: '#007bff', // 控制點顏色
-                    cornerSize: 10,       // 控制點大小
-                    transparentCorners: false, // 控制點不透明
-                    padding: 5,           // 控制點與圖片的距離
-                    borderColor: '#ccc',  // 選中時的框線顏色
-                });
-                
-                // 將貼紙加入畫布，並將其設為當前選中物件
-                canvas.add(img);
-                canvas.setActiveObject(img); 
-                canvas.renderAll();
-            }, { crossOrigin: 'anonymous' }); // 核心：處理跨網域圖片加載問題
-        }
-
-        // --- 5. 函數：下載合成後的圖片 ---
-        function downloadImage() {
-            // 生成高品質的 DataURL
-            const dataURL = canvas.toDataURL({
-                format: 'png',
-                quality: 1,
-                multiplier: 2 // 乘數，生成更高的解析度 (800x800)
+        window.onload = function() {
+            canvas = new fabric.Canvas('mainCanvas', {
+                preserveObjectStacking: true
             });
-            const link = document.createElement('a');
-            link.download = 'my-creative-text.png';
-            link.href = dataURL;
-            link.click();
+            
+            // 預設加上大大的文字
+            addNewText();
+            loadAssets('ears');
+
+            // 選取文字時連動控制項
+            canvas.on('selection:created', (e) => onObjectSelected(e.selected[0]));
+            canvas.on('selection:updated', (e) => onObjectSelected(e.selected[0]));
+
+            // 全域按鍵監聽
+            document.addEventListener('keydown', (e) => {
+                if ((e.key === 'Delete' || e.key === 'Backspace') && document.activeElement.tagName !== 'INPUT') {
+                    deleteSelected();
+                }
+            });
+        };
+
+        function onObjectSelected(obj) {
+            if (obj && obj.type === 'i-text') {
+                document.getElementById('textInput').value = obj.text;
+                document.getElementById('textColor').value = obj.fill;
+            }
         }
 
-        // --- 6. 函數：清空畫布，還原文字 ---
-        function clearCanvas() {
-            canvas.clear();
-            canvas.add(initialText);
-            canvas.setBackgroundColor('#ffffff');
+        function addNewText() {
+            const content = document.getElementById('textInput').value || '您好';
+            const color = document.getElementById('textColor').value;
+            const newText = new fabric.IText(content, {
+                left: 185,
+                top: 160,
+                originX: 'center',
+                originY: 'center',
+                fontSize: 70,
+                fontFamily: 'Microsoft JhengHei, sans-serif',
+                fill: color,
+                fontWeight: 'bold',
+                cornerColor: '#4f46e5',
+                cornerSize: 12, // 加大控制點讓銀髮族好拉
+                transparentCorners: false
+            });
+            canvas.add(newText);
+            canvas.setActiveObject(newText);
             canvas.renderAll();
         }
 
-        // --- 7. 監聽鍵盤：選中物件後按 Delete 或 Backspace 鍵刪除 ---
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                const activeObjects = canvas.getActiveObjects();
-                if (activeObjects.length > 0) {
-                    // 確認選中的不是預設文字 (防止意外刪除預設文字)
-                    if (activeObjects[0].type !== 'i-text' || activeObjects[0].text !== '早安') {
-                        canvas.discardActiveObject(); // 取消選中
-                        canvas.remove(...activeObjects); // 刪除選中物件
-                        canvas.renderAll();
-                    }
-                }
+        function updateActiveText() {
+            const activeObj = canvas.getActiveObject();
+            if (activeObj && activeObj.type === 'i-text') {
+                activeObj.set({ 
+                    text: document.getElementById('textInput').value, 
+                    fill: document.getElementById('textColor').value 
+                });
+                canvas.renderAll();
             }
-        });
-
-        // --- 8. 函數：顯示不同類型的素材 (選單切換) ---
-        function showCategory(categoryId) {
-            const categories = document.querySelectorAll('.asset-grid');
-            categories.forEach(cat => cat.classList.remove('active')); // 先隱藏所有
-
-            document.getElementById(categoryId).classList.add('active'); // 顯示選定的
-
-            const tabs = document.querySelectorAll('.tab-btn');
-            tabs.forEach(tab => tab.classList.remove('active')); // 取消所有 tab 的 active
-            
-            // 將點擊的 tab 設為 active
-            event.target.classList.add('active'); 
         }
 
-        // --- 9. 網頁載入完成後自動執行素材載入 ---
-        window.onload = fetchAssetsFromGithub;
+        function triggerFontUpload() { document.getElementById('fontInput').click(); }
+        function handleFontUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const fontName = 'Font' + customFontCount++;
+                const fontFace = new FontFace(fontName, event.target.result);
+                fontFace.load().then(function(loaded) {
+                    document.fonts.add(loaded);
+                    const obj = canvas.getActiveObject();
+                    if (obj && obj.type === 'i-text') {
+                        obj.set('fontFamily', fontName);
+                        canvas.renderAll();
+                    }
+                });
+            };
+            reader.readAsArrayBuffer(file);
+            e.target.value = '';
+        }
+
+        async function loadAssets(category) {
+            const container = document.getElementById('asset-container');
+            container.innerHTML = '<div style="grid-column: span 4; text-align: center; padding: 20px;">讀取中...</div>';
+            try {
+                const response = await fetch(`https://api.github.com/repos/${config.user}/${config.repo}/contents/${config.basePath}${category}`);
+                const files = await response.json();
+                container.innerHTML = '';
+                files.filter(f => f.name.endsWith('.png')).forEach(file => {
+                    const imgUrl = `${config.pagesBase}${category}/${file.name}`;
+                    const imgEl = document.createElement('img');
+                    imgEl.src = imgUrl;
+                    imgEl.className = 'sticker-item';
+                    imgEl.onclick = () => addSticker(imgUrl);
+                    container.appendChild(imgEl);
+                });
+            } catch (err) {
+                container.innerHTML = '<div style="grid-column: span 4; color: red;">載入失敗</div>';
+            }
+        }
+
+        function changeTab(cat, el) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            loadAssets(cat);
+        }
+
+        function addSticker(url) {
+            fabric.Image.fromURL(url, function(img) {
+                img.scale(0.6).set({
+                    left: 185, top: 160,
+                    originX: 'center', originY: 'center',
+                    cornerColor: '#4f46e5', cornerSize: 12,
+                    transparentCorners: false
+                });
+                canvas.add(img);
+                canvas.setActiveObject(img);
+                canvas.renderAll();
+            }, { crossOrigin: 'anonymous' });
+        }
+
+        function triggerUpload() { document.getElementById('fileInput').click(); }
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(f) {
+                fabric.Image.fromURL(f.target.result, function(img) {
+                    if (img.width > 350) img.scaleToWidth(350);
+                    img.set({ left: 185, top: 160, originX: 'center', originY: 'center' });
+                    canvas.add(img);
+                    canvas.setActiveObject(img);
+                    canvas.renderAll();
+                });
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }
+
+        function exportImage() {
+            canvas.discardActiveObject();
+            canvas.renderAll();
+            const link = document.createElement('a');
+            link.download = '我的創意貼圖.png';
+            link.href = canvas.toDataURL({ format: 'png', quality: 1.0 });
+            link.click();
+        }
+
+        function bringToFront() {
+            const obj = canvas.getActiveObject();
+            if (obj) { obj.bringToFront(); canvas.renderAll(); }
+        }
+        function sendToBack() {
+            const obj = canvas.getActiveObject();
+            if (obj) { obj.sendToBack(); canvas.renderAll(); }
+        }
+        function deleteSelected() {
+            const actives = canvas.getActiveObjects();
+            if (actives.length > 0) {
+                canvas.remove(...actives);
+                canvas.discardActiveObject();
+                canvas.renderAll();
+            }
+        }
+        function resetCanvas() {
+            if(confirm('確定要全部刪除重新開始嗎？')) {
+                canvas.clear();
+                canvas.renderAll();
+            }
+        }
     </script>
 </body>
 </html>
