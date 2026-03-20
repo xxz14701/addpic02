@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>樂齡創意表情設計器 - 穩定版</title>
+    <title>創意表情設計器</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root {
@@ -224,8 +224,8 @@
 <body>
 
     <div class="header">
-        <h1>👵 創意貼圖大師 👴</h1>
-        <p>穩定版：適合課堂多人同時使用</p>
+        <h1>創意貼圖</h1>
+        
     </div>
 
     <div class="main-container">
@@ -242,35 +242,35 @@
 
             <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
                 <button class="btn btn-success" onclick="exportImage()">💾 完成並存檔 (透明圖)</button>
-                <button class="btn btn-outline" onclick="resetCanvas()">♻️ 整張重做 (清空)</button>
+                
             </div>
         </div>
 
         <div class="sidebar">
             <div class="step-box">
                 <span class="step-label">第 1 步</span>
-                <label class="control-label">放上我的照片</label>
+                
                 <button class="btn btn-primary" style="background-color: #0891b2;" onclick="triggerUpload()">📷 選取電腦/手機的照片</button>
                 <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)">
             </div>
 
             <div class="step-box">
                 <span class="step-label">第 2 步</span>
-                <label class="control-label">寫些吉祥話</label>
+                
                 <div class="input-row">
-                    <input type="text" id="textInput" value="平安喜樂" placeholder="在這裡打字..." onkeyup="updateActiveText()">
+                    <input type="text" id="textInput" value="早安" placeholder="在這裡打字..." onkeyup="updateActiveText()">
                     <input type="color" id="textColor" value="#4f46e5" onchange="updateActiveText()">
                 </div>
                 <div style="margin-bottom: 10px;">
-                    <button class="btn btn-warning" onclick="triggerFontUpload()">🔠 換個漂亮字型</button>
+                    <button class="btn btn-warning" onclick="triggerFontUpload()">🔠 更換字型</button>
                     <input type="file" id="fontInput" accept=".ttf,.otf" onchange="handleFontUpload(event)">
                 </div>
-                <button class="btn btn-primary" onclick="addNewText()">➕ 再加一段文字</button>
+                <button class="btn btn-primary" onclick="addNewText()">➕ 加入一段文字</button>
             </div>
 
             <div class="step-box">
                 <span class="step-label">第 3 步</span>
-                <label class="control-label">加點可愛裝飾</label>
+                
                 <div class="tabs">
                     <div class="tab active" onclick="changeTab('ears', this)">耳朵</div>
                     <div class="tab" onclick="changeTab('eyes', this)">眼睛</div>
@@ -282,7 +282,7 @@
             </div>
 
             <div style="font-size: 14px; color: #64748b; text-align: center; font-weight: bold; background: #f8fafc; padding: 10px; border-radius: 12px;">
-                💡 小撇步：用手指或滑鼠可以移動、縮放畫布上的東西喔！
+                Billy ^.^ | Program improved by AI @2026
             </div>
         </div>
     </div>
