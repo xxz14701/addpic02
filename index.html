@@ -5,1055 +5,414 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="shortcut icon" href="01.png">
 <title>創意貼圖設計器</title>
-<!-- Fabric.js 仍從 CDN 載入（不是問題所在） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-
-<!-- ██ omggif - GIF 解碼庫（完整內嵌，不需外部連線） ████████████████ -->
 <script>
-/* omggif 1.0.10 - https://github.com/deanm/omggif - MIT License */
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.GifReader = f().GifReader;g.GifWriter = f().GifWriter}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
-// (c) Dean McNamee <dean@gmail.com>, 2013. MIT license.
-function GifReader(buf) {
-  var p = 0;
-  if (buf[p++] !== 0x47 || buf[p++] !== 0x49 || buf[p++] !== 0x46 ||
-      buf[p++] !== 0x38 || (buf[p++] !== 0x39 && buf[p-1] !== 0x37) ||
-      buf[p++] !== 0x61) {
-    throw new Error("Invalid GIF 87a/89a header.");
-  }
-  var width = buf[p++] | buf[p++] << 8;
-  var height = buf[p++] | buf[p++] << 8;
-  var pf0 = buf[p++];
-  var global_palette_flag = pf0 >> 7;
-  var num_global_colors_pow2 = pf0 & 0x7;
-  var num_global_colors = 1 << (num_global_colors_pow2 + 1);
-  var background = buf[p++];
-  buf[p++];
-  var global_palette_offset = null;
-  var global_palette_size = null;
-  if (global_palette_flag) {
-    global_palette_offset = p;
-    global_palette_size = num_global_colors;
-    p += num_global_colors * 3;
-  }
-  var no_eof = true;
-  var frames = [];
-  var delay = 0;
-  var transparent_index = null;
-  var disposal = 0;
-  var loop_count = null;
-  this.width = width;
-  this.height = height;
-  while (no_eof && p < buf.length) {
-    switch (buf[p++]) {
-      case 0x3B:
-        no_eof = false;
-        break;
-      case 0x2C:
-        if (transparent_index === null) transparent_index = -1;
-        var frame = {};
-        frame.x = buf[p++] | buf[p++] << 8;
-        frame.y = buf[p++] | buf[p++] << 8;
-        frame.width = buf[p++] | buf[p++] << 8;
-        frame.height = buf[p++] | buf[p++] << 8;
-        var pf2 = buf[p++];
-        var local_palette_flag = pf2 >> 7;
-        var interlace_flag = (pf2 >> 6) & 1;
-        var num_local_colors_pow2 = pf2 & 0x7;
-        var num_local_colors = 1 << (num_local_colors_pow2 + 1);
-        var palette_offset = global_palette_offset;
-        var palette_size = global_palette_size;
-        var has_local = local_palette_flag === 1;
-        if (has_local) {
-          palette_offset = p;
-          palette_size = num_local_colors;
-          p += num_local_colors * 3;
-        }
-        frame.palette_offset = palette_offset;
-        frame.palette_size = palette_size;
-        frame.data_offset = p;
-        frame.data_length = null;
-        frame.transparent_index = transparent_index;
-        frame.interlaced = !!interlace_flag;
-        frame.delay = delay;
-        frame.disposal = disposal;
-        p++;
-        var data_size = 0;
-        while (true) {
-          var block_size = buf[p++];
-          data_size += block_size;
-          if (block_size === 0) break;
-          p += block_size;
-        }
-        frame.data_length = data_size;
-        frames.push(frame);
-        delay = 0;
-        transparent_index = null;
-        disposal = 0;
-        break;
-      case 0x21:
-        var label = buf[p++];
-        if (label === 0xF9) {
-          p++;
-          var pf3 = buf[p++];
-          disposal = (pf3 >> 3) & 0x7;
-          delay = buf[p++] | buf[p++] << 8;
-          transparent_index = buf[p++];
-          if ((pf3 & 1) === 0) transparent_index = null;
-          p++;
-        } else if (label === 0xFF) {
-          var block_size2 = buf[p];
-          if (block_size2 !== 11) {
-            p += block_size2 + 1;
-          } else {
-            p += 12;
-            var loop_block_size = buf[p++];
-            if (loop_block_size === 3) {
-              buf[p++];
-              loop_count = buf[p++] | buf[p++] << 8;
-            } else {
-              p += loop_block_size;
-            }
-          }
-          while (true) {
-            var bs = buf[p++];
-            if (bs === 0) break;
-            p += bs;
-          }
-        } else {
-          while (true) {
-            var bs2 = buf[p++];
-            if (bs2 === 0) break;
-            p += bs2;
-          }
-        }
-        break;
-      default:
-        break;
-    }
-  }
-  this.numFrames = function() { return frames.length; };
-  this.loopCount = function() { return loop_count; };
-  this.frameInfo = function(frame_num) {
-    if (frame_num < 0 || frame_num >= frames.length)
-      throw new Error("Frame index out of range.");
-    return frames[frame_num];
-  };
-  this.decodeAndBlitFrameBGRA = function(frame_num, pixels) {
-    var frame = frames[frame_num];
-    var num_pixels = frame.width * frame.height;
-    var index_stream = new Uint8Array(num_pixels);
-    GifReaderLZWOutputIndexStream(buf, frame.data_offset, index_stream, num_pixels);
-    var palette_offset = frame.palette_offset;
-    var trans = frame.transparent_index;
-    var p = 0;
-    var x = 0, y = 0, interlaced = frame.interlaced;
-    var ipass = 0, iinc = interlaced ? 8 : 1;
-    for (var i = 0; i < num_pixels; ++i) {
-      var index = index_stream[i];
-      var poffset = palette_offset + index * 3;
-      if (interlaced) {
-        var passes = [0, 4, 2, 1];
-        var rows = [0, 4, 2, 1];
-        p = (frame.y + rows[ipass] + y * iinc) * width * 4 + (frame.x + x) * 4;
-      } else {
-        p = (frame.y + y) * width * 4 + (frame.x + x) * 4;
-      }
-      if (trans === null || index !== trans) {
-        pixels[p] = buf[poffset + 2];
-        pixels[p+1] = buf[poffset + 1];
-        pixels[p+2] = buf[poffset];
-        pixels[p+3] = 255;
-      }
-      if (++x === frame.width) {
-        x = 0;
-        if (interlaced) {
-          y++;
-          if (y >= Math.ceil(frame.height / iinc)) {
-            y = 0; ipass++;
-            if (ipass < 4) iinc = [4, 4, 2, 1][ipass];
-          }
-        } else {
-          y++;
-        }
-      }
-    }
-  };
-  this.decodeAndBlitFrameRGBA = function(frame_num, pixels) {
-    var frame = frames[frame_num];
-    var num_pixels = frame.width * frame.height;
-    var index_stream = new Uint8Array(num_pixels);
-    GifReaderLZWOutputIndexStream(buf, frame.data_offset, index_stream, num_pixels);
-    var palette_offset = frame.palette_offset;
-    var trans = frame.transparent_index;
-    var x = 0, y = 0, interlaced = frame.interlaced;
-    var ipass = 0, iinc = interlaced ? 8 : 1;
-    for (var i = 0; i < num_pixels; ++i) {
-      var index = index_stream[i];
-      var poffset = palette_offset + index * 3;
-      var p;
-      if (interlaced) {
-        var passes = [0, 4, 2, 1];
-        var rows = [0, 4, 2, 1];
-        p = (frame.y + rows[ipass] + y * iinc) * width * 4 + (frame.x + x) * 4;
-      } else {
-        p = (frame.y + y) * width * 4 + (frame.x + x) * 4;
-      }
-      if (trans === null || index !== trans) {
-        pixels[p] = buf[poffset];
-        pixels[p+1] = buf[poffset + 1];
-        pixels[p+2] = buf[poffset + 2];
-        pixels[p+3] = 255;
-      }
-      if (++x === frame.width) {
-        x = 0;
-        if (interlaced) {
-          y++;
-          if (y >= Math.ceil(frame.height / iinc)) {
-            y = 0; ipass++;
-            if (ipass < 4) iinc = [4, 4, 2, 1][ipass];
-          }
-        } else {
-          y++;
-        }
-      }
-    }
-  };
-}
-
-function GifReaderLZWOutputIndexStream(code_stream, p, output, output_length) {
-  var min_code_size = code_stream[p++];
-  var clear_code = 1 << min_code_size;
-  var eoi_code = clear_code + 1;
-  var next_code = eoi_code + 1;
-  var cur_code_size = min_code_size + 1;
-  var code_mask = (1 << cur_code_size) - 1;
-  var cur_shift = 0;
-  var cur = 0;
-  var op = 0;
-  var subblock_size = 0;
-  var code_table = new Int32Array(4096);
-  var code_table_entry = function(i) {
-    return code_table[i];
-  };
-  var output_arr = output;
-  var entries = new Int32Array(4096);
-  var strbuf = [];
-  while (true) {
-    while (cur_shift < cur_code_size) {
-      if (subblock_size === 0) {
-        subblock_size = code_stream[p++];
-        if (subblock_size === 0) return;
-      }
-      cur |= code_stream[p++] << cur_shift;
-      cur_shift += 8;
-      --subblock_size;
-    }
-    var code = cur & code_mask;
-    cur >>= cur_code_size;
-    cur_shift -= cur_code_size;
-    if (code === clear_code) {
-      next_code = eoi_code + 1;
-      cur_code_size = min_code_size + 1;
-      code_mask = (1 << cur_code_size) - 1;
-      var prev_code = null;
+/* GifDecoder - pure JS GIF89a decoder, no external deps */
+function GifDecoder(u8){
+  if(u8[0]!==71||u8[1]!==73||u8[2]!==70)throw new Error('不是有效的 GIF 檔案');
+  var p=6,SW=u8[p]|(u8[p+1]<<8),SH=u8[p+2]|(u8[p+3]<<8);p+=4;
+  var pk=u8[p++];p+=2;
+  var gpal=null;
+  if(pk>>7){var n=3*(2<<(pk&7));gpal=u8.slice(p,p+n);p+=n;}
+  this.width=SW;this.height=SH;
+  var frames=[],gcD=0,gcT=-1,gcDis=0;
+  while(p<u8.length){
+    var m=u8[p++];
+    if(m===0x3B)break;
+    if(m===0x21){
+      var lbl=u8[p++];
+      if(lbl===0xF9){p++;var f=u8[p++];gcDis=(f>>3)&7;gcD=u8[p]|(u8[p+1]<<8);p+=2;gcT=(f&1)?u8[p++]:(p++,-1);p++;}
+      else{while(true){var s=u8[p++];if(s===0)break;p+=s;}}
       continue;
-    } else if (code === eoi_code) {
-      break;
     }
-    var code_to_expand = code;
-    var prev_code2 = code;
-    strbuf.length = 0;
-    while (code_to_expand > eoi_code) {
-      var entry = code_table[code_to_expand];
-      strbuf.push(entry & 0xFF);
-      code_to_expand = entry >> 8;
-    }
-    strbuf.push(code_to_expand);
-    strbuf.reverse();
-    for (var k = 0; k < strbuf.length; ++k) {
-      if (op < output_length) output_arr[op++] = strbuf[k];
-    }
-    if (prev_code !== null && next_code < 4096) {
-      var first_code = code_to_expand;
-      code_table[next_code] = (prev_code << 8) | first_code;
-      ++next_code;
-      if (next_code !== 4096 && (next_code & code_mask) === 0) {
-        ++cur_code_size;
-        code_mask <<= 1;
-        ++code_mask;
-      }
-    }
-    prev_code = prev_code2;
+    if(m!==0x2C)continue;
+    var fx=u8[p]|(u8[p+1]<<8);p+=2;var fy=u8[p]|(u8[p+1]<<8);p+=2;
+    var fw=u8[p]|(u8[p+1]<<8);p+=2;var fh=u8[p]|(u8[p+1]<<8);p+=2;
+    var fp=u8[p++];var lpal=null;
+    if(fp>>7){var ln=3*(2<<(fp&7));lpal=u8.slice(p,p+ln);p+=ln;}
+    var pal=lpal||gpal,mc=u8[p++],raw=[];
+    while(true){var bs=u8[p++];if(bs===0)break;for(var i=0;i<bs;i++)raw.push(u8[p++]);}
+    frames.push({x:fx,y:fy,w:fw,h:fh,pal:pal,ti:gcT,delay:Math.max(20,gcD*10),dis:gcDis,mc:mc,raw:new Uint8Array(raw)});
+    gcD=0;gcT=-1;gcDis=0;
   }
+  var decoded=null;
+  this.getFrames=function(){
+    if(decoded)return decoded;
+    decoded=[];
+    var cc=document.createElement('canvas');cc.width=SW;cc.height=SH;
+    var cx=cc.getContext('2d');
+    for(var fi=0;fi<frames.length;fi++){
+      var fr=frames[fi];
+      var idx=gifLZW(fr.raw,fr.mc,fr.w*fr.h);
+      var rgba=new Uint8ClampedArray(fr.w*fr.h*4);
+      for(var j=0;j<idx.length;j++){
+        var ci=idx[j];
+        if(fr.ti>=0&&ci===fr.ti){rgba[j*4+3]=0;continue;}
+        rgba[j*4]=fr.pal[ci*3];rgba[j*4+1]=fr.pal[ci*3+1];rgba[j*4+2]=fr.pal[ci*3+2];rgba[j*4+3]=255;
+      }
+      if(fi>0&&decoded[fi-1]&&decoded[fi-1].dis===2){var pf=frames[fi-1];cx.clearRect(pf.x,pf.y,pf.w,pf.h);}
+      var pc=document.createElement('canvas');pc.width=fr.w;pc.height=fr.h;
+      pc.getContext('2d').putImageData(new ImageData(rgba,fr.w,fr.h),0,0);
+      cx.drawImage(pc,fr.x,fr.y);
+      var sc=document.createElement('canvas');sc.width=SW;sc.height=SH;
+      sc.getContext('2d').drawImage(cc,0,0);
+      decoded.push({canvas:sc,delay:fr.delay,dis:fr.dis});
+    }
+    return decoded;
+  };
 }
-
-window.GifReader = GifReader;
+function gifLZW(data,mc,np){
+  var cc=1<<mc,eof=cc+1,cs=mc+1,cm=(1<<cs)-1,fc=eof+1;
+  var tbl=[],i;for(i=0;i<cc;i++)tbl[i]=[i];tbl[cc]=[];tbl[eof]=[];
+  var out=new Uint8Array(np),op=0,buf=0,bl=0,dp=0,prev=null;
+  function rc(){while(bl<cs){if(dp>=data.length)return eof;buf|=data[dp++]<<bl;bl+=8;}var c=buf&cm;buf>>=cs;bl-=cs;return c;}
+  while(op<np){
+    var code=rc();
+    if(code===eof)break;
+    if(code===cc){tbl.length=eof+1;fc=eof+1;cs=mc+1;cm=(1<<cs)-1;prev=null;continue;}
+    var entry;
+    if(code<tbl.length)entry=tbl[code];
+    else if(prev&&code===fc)entry=prev.concat(prev[0]);
+    else break;
+    for(var k=0;k<entry.length&&op<np;k++)out[op++]=entry[k];
+    if(prev!==null&&fc<4096){tbl[fc++]=prev.concat(entry[0]);if(fc>(1<<cs)&&cs<12){cs++;cm=(1<<cs)-1;}}
+    prev=entry;
+  }
+  return out;
+}
 </script>
-
-<!-- ██ gifenc - 快速GIF編碼庫（完整內嵌） ████████████████████████████████ -->
 <script>
-/*! gifenc 1.0.1 - https://github.com/mattdesl/gifenc - MIT License - inlined for offline use */
-(function(global){
-"use strict";
-
-// --- NeuQuant quantizer (by Anthony Dekker, ported to JS) ---
-function NeuQuant(pixels, samplefac) {
-  var netsize = 256;
-  var prime1 = 499, prime2 = 491, prime3 = 487, prime4 = 503;
-  var minpicturebytes = 3 * prime4;
-  var maxnetpos = netsize - 1;
-  var netbiasshift = 4, ncycles = 100;
-  var intbiasshift = 16, intbias = 1 << intbiasshift;
-  var gammashift = 10;
-  var betashift = 10;
-  var beta = intbias >> betashift;
-  var betagamma = intbias << (gammashift - betashift);
-  var initrad = netsize >> 3, radiusbiasshift = 6;
-  var radiusbias = 1 << radiusbiasshift;
-  var initradius = initrad * radiusbias;
-  var radiusdec = 30;
-  var alphabiasshift = 10;
-  var initalpha = 1 << alphabiasshift;
-  var alphadec;
-  var radbiasshift = 8, radbias = 1 << radbiasshift;
-  var alpharadbshift = alphabiasshift + radbiasshift;
-  var alpharadbias = 1 << alpharadbshift;
-  var network = [];
-  var netindex = new Int32Array(256);
-  var bias = new Int32Array(netsize);
-  var freq = new Int32Array(netsize);
-  var radpower = new Int32Array(netsize >> 3);
-  function init() {
-    for (var i = 0; i < netsize; i++) {
-      var v = (i << (netbiasshift + 8)) / netsize;
-      network[i] = new Float64Array([v, v, v, 0]);
-      freq[i] = intbias / netsize;
-      bias[i] = 0;
+/* GifBuilder - pure JS GIF encoder with NeuQuant */
+var GifBuilder=(function(){
+  function nq(rgb,sf){
+    sf=sf||10;var N=256,net=[],ni=new Int32Array(256),bias=new Int32Array(N),freq=new Int32Array(N),rp=new Int32Array(32);
+    var ib=65536,gs=10,bta=(ib>>10),btg=ib<<(10-10),nbs=4,ra=64,ara=65536,ialp=1024,rdec=30;
+    for(var i=0;i<N;i++){var v=(i<<(nbs+8))/N;net[i]=[v,v,v,i];freq[i]=(ib/N)|0;bias[i]=0;}
+    function con(b,g,r){var bd=2147483647,bb=bd,bp=-1,bbp=-1;for(var i=0;i<N;i++){var n=net[i],d=Math.abs(n[0]-b)+Math.abs(n[1]-g)+Math.abs(n[2]-r);if(d<bd){bd=d;bp=i;}var bd2=d-(bias[i]>>(16-nbs));if(bd2<bb){bb=bd2;bbp=i;}freq[i]-=freq[i]>>5;bias[i]+=freq[i]<<gs;}freq[bp]+=bta;bias[bp]-=btg;return bbp;}
+    function als(al,i,b,g,r){net[i][0]-=(al*(net[i][0]-b))/ialp;net[i][1]-=(al*(net[i][1]-g))/ialp;net[i][2]-=(al*(net[i][2]-r))/ialp;}
+    function aln(rd,i,b,g,r){var lo=Math.max(i-rd,0),hi=Math.min(i+rd,N);for(var j=i+1,k=i-1,m=1;j<hi||k>lo;m++){var a=rp[Math.min(m,31)];if(j<hi){net[j][0]-=(a*(net[j][0]-b))/ara;net[j][1]-=(a*(net[j][1]-g))/ara;net[j][2]-=(a*(net[j][2]-r))/ara;j++;}if(k>lo){net[k][0]-=(a*(net[k][0]-b))/ara;net[k][1]-=(a*(net[k][1]-g))/ara;net[k][2]-=(a*(net[k][2]-r))/ara;k--;}}}
+    var lc=rgb.length,sp=Math.max(1,(lc/3/sf)|0),dl=Math.max(1,(sp/100)|0),alp=ialp;
+    var rad=Math.floor(N/8)*64,rd2=(rad>>6);if(rd2<=1)rd2=0;
+    for(var i=0;i<Math.min(rd2,32);i++)rp[i]=Math.floor(alp*((rd2*rd2-i*i)*ra/(rd2*rd2)));
+    var step=lc%499?3*499:lc%491?3*491:lc%487?3*487:3*503;
+    for(var px=0,cnt=0;cnt<sp;cnt++){
+      var b2=(rgb[px]&255)<<nbs,g2=(rgb[px+1]&255)<<nbs,r2=(rgb[px+2]&255)<<nbs;
+      var j2=con(b2,g2,r2);als(alp,j2,b2,g2,r2);if(rd2>0)aln(rd2,j2,b2,g2,r2);
+      px+=step;if(px>=lc)px-=lc;
+      if(cnt%dl===0){alp-=alp/30;rad-=rad/rdec;rd2=rad>>6;if(rd2<=1)rd2=0;for(var i=0;i<Math.min(rd2,32);i++)rp[i]=Math.floor(alp*((rd2*rd2-i*i)*ra/(rd2*rd2)));}
     }
+    for(var i=0;i<N;i++){net[i][0]>>=nbs;net[i][1]>>=nbs;net[i][2]>>=nbs;}
+    var pv=0,ss=0;
+    for(var i=0;i<N;i++){var sm=i,sv=net[i][1];for(var j=i+1;j<N;j++)if(net[j][1]<sv){sm=j;sv=net[j][1];}if(i!==sm){var t=net[i];net[i]=net[sm];net[sm]=t;}if(sv!==pv){ni[pv]=(ss+i)>>1;for(var k=pv+1;k<sv;k++)ni[k]=i;pv=sv;ss=i;}}
+    ni[pv]=(ss+N-1)>>1;for(var j=pv+1;j<256;j++)ni[j]=N-1;
+    return {
+      pal:function(){var m=new Uint8Array(N*3),idx=new Array(N);for(var i=0;i<N;i++)idx[net[i][3]]=i;for(var l=0;l<N;l++){var j2=idx[l];m[l*3]=net[j2][0];m[l*3+1]=net[j2][1];m[l*3+2]=net[j2][2];}return m;},
+      map:function(r,g,b){var bd=1000,best=-1,i=ni[g],j=i-1;while(i<N||j>=0){if(i<N){var p=net[i],d=Math.abs(p[1]-g);if(d>=bd)i=N;else{d+=Math.abs(p[0]-b)+Math.abs(p[2]-r);if(d<bd){bd=d;best=p[3];}i++;}}if(j>=0){var q=net[j],d=Math.abs(q[1]-g);if(d>=bd)j=-1;else{d+=Math.abs(q[0]-b)+Math.abs(q[2]-r);if(d<bd){bd=d;best=q[3];}j--;}}}return best;}
+    };
   }
-  function unbiasnet() {
-    for (var i = 0; i < netsize; i++) {
-      network[i][0] >>= netbiasshift;
-      network[i][1] >>= netbiasshift;
-      network[i][2] >>= netbiasshift;
-      network[i][3] = i;
+  function lzwEnc(idx){
+    var mc=8,cc=256,eof=257,cs=9,cm=511,fc=258,tbl={},out=[],bb=0,bl=0;
+    function emit(c){bb|=c<<bl;bl+=cs;while(bl>=8){out.push(bb&255);bb>>=8;bl-=8;}}
+    function reset(){tbl={};fc=258;cs=9;cm=511;}
+    emit(cc);
+    var prev=idx[0]&255;
+    for(var i=1;i<idx.length;i++){
+      var cur=idx[i]&255,key=prev+'_'+cur;
+      if(tbl[key]!==undefined){prev=tbl[key];}
+      else{emit(prev);if(fc<4096){tbl[key]=fc++;if(fc>(1<<cs)&&cs<12){cs++;cm=(1<<cs)-1;}}else{emit(cc);reset();}prev=cur;}
     }
+    emit(prev);emit(eof);if(bl>0)out.push(bb&255);
+    return new Uint8Array(out);
   }
-  function altersingle(alpha, i, b, g, r) {
-    network[i][0] -= (alpha * (network[i][0] - b)) / initalpha;
-    network[i][1] -= (alpha * (network[i][1] - g)) / initalpha;
-    network[i][2] -= (alpha * (network[i][2] - r)) / initalpha;
-  }
-  function alterneigh(radius, i, b, g, r) {
-    var lo = Math.abs(i - radius), hi = Math.min(i + radius, netsize);
-    var j = i + 1, k = i - 1, m = 1;
-    while (j < hi || k > lo) {
-      var a = radpower[m++];
-      if (j < hi) {
-        network[j][0] -= (a * (network[j][0] - b)) / alpharadbias;
-        network[j][1] -= (a * (network[j][1] - g)) / alpharadbias;
-        network[j][2] -= (a * (network[j][2] - r)) / alpharadbias;
-        j++;
-      }
-      if (k > lo) {
-        network[k][0] -= (a * (network[k][0] - b)) / alpharadbias;
-        network[k][1] -= (a * (network[k][1] - g)) / alpharadbias;
-        network[k][2] -= (a * (network[k][2] - r)) / alpharadbias;
-        k--;
-      }
-    }
-  }
-  function contest(b, g, r) {
-    var bestd = ~(1 << 31), bestbiasd = bestd, bestpos = -1, bestbiaspos = bestpos;
-    for (var i = 0; i < netsize; i++) {
-      var n = network[i];
-      var dist = Math.abs(n[0] - b) + Math.abs(n[1] - g) + Math.abs(n[2] - r);
-      if (dist < bestd) { bestd = dist; bestpos = i; }
-      var biasdist = dist - (bias[i] >> (intbiasshift - netbiasshift));
-      if (biasdist < bestbiasd) { bestbiasd = biasdist; bestbiaspos = i; }
-      freq[i] -= freq[i] >> 5;
-      bias[i] += freq[i] << gammashift;
-    }
-    freq[bestpos] += beta;
-    bias[bestpos] -= betagamma;
-    return bestbiaspos;
-  }
-  function inxbuild() {
-    var prev = 0, startpos = 0;
-    for (var i = 0; i < netsize; i++) {
-      var smallpos = i, smallval = network[i][1];
-      for (var j = i + 1; j < netsize; j++) {
-        if (network[j][1] < smallval) { smallpos = j; smallval = network[j][1]; }
-      }
-      var t = network[smallpos];
-      if (i !== smallpos) { var tmp = network[i]; network[i] = t; network[smallpos] = tmp; }
-      if (smallval !== prev) {
-        netindex[prev] = (startpos + i) >> 1;
-        for (var k = prev + 1; k < smallval; k++) netindex[k] = i;
-        prev = smallval; startpos = i;
-      }
-    }
-    netindex[prev] = (startpos + maxnetpos) >> 1;
-    for (var j2 = prev + 1; j2 < 256; j2++) netindex[j2] = maxnetpos;
-  }
-  function lookup(b, g, r) {
-    var bestd = 1000, best = -1;
-    var i = netindex[g];
-    var j = i - 1;
-    while (i < netsize || j >= 0) {
-      if (i < netsize) {
-        var p = network[i];
-        var dist2 = Math.abs(p[1] - g);
-        if (dist2 >= bestd) { i = netsize; }
-        else {
-          dist2 += Math.abs(p[0] - b) + Math.abs(p[2] - r);
-          if (dist2 < bestd) { bestd = dist2; best = p[3]; }
-          i++;
-        }
-      }
-      if (j >= 0) {
-        var p2 = network[j];
-        var dist3 = Math.abs(p2[1] - g);
-        if (dist3 >= bestd) { j = -1; }
-        else {
-          dist3 += Math.abs(p2[0] - b) + Math.abs(p2[2] - r);
-          if (dist3 < bestd) { bestd = dist3; best = p2[3]; }
-          j--;
-        }
-      }
-    }
-    return best;
-  }
-  function learn() {
-    var lengthcount = pixels.length;
-    var alphadec2 = 30 + (samplefac - 1) / 3;
-    var samplepixels = lengthcount / (3 * samplefac);
-    var delta = ~~(samplepixels / ncycles);
-    var alpha = initalpha;
-    var radius = initradius;
-    var rad = radius >> radiusbiasshift;
-    if (rad <= 1) rad = 0;
-    for (var i = 0; i < rad; i++) radpower[i] = ~~(alpha * (((rad * rad - i * i) * radbias) / (rad * rad)));
-    var step;
-    if (lengthcount < minpicturebytes) samplefac = 1;
-    if (samplefac === 1) step = 3;
-    else if (lengthcount % prime1 !== 0) step = 3 * prime1;
-    else if (lengthcount % prime2 !== 0) step = 3 * prime2;
-    else if (lengthcount % prime3 !== 0) step = 3 * prime3;
-    else step = 3 * prime4;
-    var pix = 0;
-    for (var i2 = 0; i2 < samplepixels; ) {
-      var b2 = (pixels[pix] & 0xFF) << netbiasshift;
-      var g2 = (pixels[pix + 1] & 0xFF) << netbiasshift;
-      var r2 = (pixels[pix + 2] & 0xFF) << netbiasshift;
-      var j2 = contest(b2, g2, r2);
-      altersingle(alpha, j2, b2, g2, r2);
-      if (rad !== 0) alterneigh(rad, j2, b2, g2, r2);
-      pix += step;
-      if (pix >= lengthcount) pix -= lengthcount;
-      i2++;
-      if (delta === 0) delta = 1;
-      if (i2 % delta === 0) {
-        alpha -= alpha / alphadec2;
-        radius -= radius / radiusdec;
-        rad = radius >> radiusbiasshift;
-        if (rad <= 1) rad = 0;
-        for (var k = 0; k < rad; k++) radpower[k] = ~~(alpha * (((rad * rad - k * k) * radbias) / (rad * rad)));
-      }
-    }
-  }
-  function buildColormap() { init(); learn(); unbiasnet(); inxbuild(); }
-  function getColormap() {
-    var map = [];
-    var index = new Array(netsize);
-    for (var i = 0; i < netsize; i++) index[network[i][3]] = i;
-    for (var l = 0; l < netsize; l++) {
-      var j2 = index[l];
-      map.push(network[j2][0], network[j2][1], network[j2][2]);
-    }
-    return map;
-  }
-  buildColormap();
-  this.lookup = function(r, g, b) { return lookup(b, g, r); };
-  this.getColormap = getColormap;
-}
-
-// --- Simple GIF encoder ---
-function ByteArray() {
-  this.data = [];
-  this.writeByte = function(b) { this.data.push(b & 0xFF); };
-  this.writeShort = function(s) { this.writeByte(s); this.writeByte(s >> 8); };
-  this.writeString = function(s) { for (var i = 0; i < s.length; i++) this.writeByte(s.charCodeAt(i)); };
-  this.toByteArray = function() { return new Uint8Array(this.data); };
-}
-
-function LZWEncoder(width, height, pixels, colorDepth) {
-  var EOF = -1, BITS = 12, HSIZE = 5003;
-  var initCodeSize = colorDepth > 1 ? colorDepth : 2;
-  var accum = new Uint8Array(256), htab = new Int32Array(HSIZE), codetab = new Int32Array(HSIZE);
-  var cur_accum, cur_bits, a_count, free_ent, maxcode, clear_flg, g_init_bits, ClearCode, EOFCode;
-  function maxCode(n_bits) { return (1 << n_bits) - 1; }
-  function output(code, outs) {
-    cur_accum &= (1 << cur_bits) - 1;
-    if (cur_bits > 0) cur_accum |= code << cur_bits; else cur_accum = code;
-    cur_bits += g_init_bits;
-    while (cur_bits >= 8) { accum[a_count++] = cur_accum & 0xFF; if (a_count >= 254) flushChar(outs); cur_accum >>= 8; cur_bits -= 8; }
-    if (free_ent > maxcode(cur_bits) || clear_flg) {
-      if (clear_flg) { maxcode_val = maxCode(g_init_bits = cur_bits = initCodeSize + 1); clear_flg = false; }
-      else { cur_bits++; if (cur_bits === BITS) maxcode_val = 1 << BITS; else maxcode_val = maxCode(cur_bits); }
-    }
-    if (code === EOFCode) {
-      while (cur_bits > 0) { accum[a_count++] = cur_accum & 0xFF; if (a_count >= 254) flushChar(outs); cur_accum >>= 8; cur_bits -= 8; }
-      if (a_count > 0) flushChar(outs);
-    }
-  }
-  var maxcode_val;
-  function flushChar(outs) { if (a_count > 0) { outs.writeByte(a_count); for (var i = 0; i < a_count; i++) outs.writeByte(accum[i]); a_count = 0; } }
-  function clearHash(hsize) { for (var j = 0; j < hsize; j++) htab[j] = -1; }
-  function clearBlock(outs) { clearHash(HSIZE); free_ent = ClearCode + 2; clear_flg = true; output(ClearCode, outs); }
-  this.encode = function(os) {
-    os.writeByte(initCodeSize);
-    var n_pixels = width * height, cur_disp = 0;
-    g_init_bits = initCodeSize + 1;
-    clear_flg = false;
-    cur_accum = 0; cur_bits = 0; a_count = 0;
-    ClearCode = 1 << initCodeSize; EOFCode = ClearCode + 1;
-    free_ent = ClearCode + 2;
-    maxcode_val = maxCode(cur_bits = g_init_bits);
-    clearHash(HSIZE);
-    output(ClearCode, os);
-    var ent = pixels[cur_disp++] & 0xFF;
-    while (cur_disp < n_pixels) {
-      var c2 = pixels[cur_disp++] & 0xFF;
-      var fcode = (c2 << BITS) + ent;
-      var i3 = (c2 << 8) ^ ent;
-      if (htab[i3] === fcode) { ent = codetab[i3]; continue; }
-      if (htab[i3] >= 0) {
-        var disp = HSIZE - i3; if (i3 === 0) disp = 1;
-        do { i3 -= disp; if (i3 < 0) i3 += HSIZE; if (htab[i3] === fcode) { ent = codetab[i3]; break; } } while (htab[i3] >= 0);
-        if (htab[i3] === fcode) continue;
-      }
-      output(ent, os);
-      ent = c2;
-      if (free_ent < 1 << BITS) { codetab[i3] = free_ent++; htab[i3] = fcode; }
-      else clearBlock(os);
-    }
-    output(ent, os);
-    output(EOFCode, os);
-    os.writeByte(0);
-  };
-}
-
-// ─── 主要 API ─────────────────────────────────
-function quantize(rgba, numColors, opts) {
-  opts = opts || {};
-  var samplefac = opts.sample || 10;
-  // Build flat RGB array for NeuQuant
-  var n = rgba.length / 4;
-  var rgb = new Uint8Array(n * 3);
-  for (var i = 0; i < n; i++) { rgb[i*3]=rgba[i*4]; rgb[i*3+1]=rgba[i*4+1]; rgb[i*3+2]=rgba[i*4+2]; }
-  var nq = new NeuQuant(rgb, samplefac);
-  var mapArr = nq.getColormap();
-  var palette = new Uint8Array(numColors * 3);
-  var len = Math.min(numColors * 3, mapArr.length);
-  for (var j = 0; j < len; j++) palette[j] = mapArr[j];
-  palette._nq = nq;
-  return palette;
-}
-
-function applyPalette(rgba, palette) {
-  var nq = palette._nq;
-  var n = rgba.length / 4;
-  var index = new Uint8Array(n);
-  if (nq) {
-    for (var i = 0; i < n; i++) index[i] = nq.lookup(rgba[i*4], rgba[i*4+1], rgba[i*4+2]);
-  } else {
-    // brute-force fallback
-    var nc = palette.length / 3;
-    for (var i2 = 0; i2 < n; i2++) {
-      var r = rgba[i2*4], g2 = rgba[i2*4+1], b2 = rgba[i2*4+2];
-      var best = 0, bestD = Infinity;
-      for (var k = 0; k < nc; k++) {
-        var dr = r - palette[k*3], dg = g2 - palette[k*3+1], db2 = b2 - palette[k*3+2];
-        var d = dr*dr + dg*dg + db2*db2;
-        if (d < bestD) { bestD = d; best = k; }
-      }
-      index[i2] = best;
-    }
-  }
-  return index;
-}
-
-function GIFEncoder() {
-  var buf = new ByteArray();
-  var first = true;
-  var started = false;
-  var width, height;
-
   return {
-    writeFrame: function(index, w, h, opts) {
-      opts = opts || {};
-      var palette = opts.palette;
-      var delay = opts.delay != null ? opts.delay : 10; // cs
-      var transparent = opts.transparent != null ? opts.transparent : -1;
-      var dispose = opts.dispose != null ? opts.dispose : -1;
-      if (!started) {
-        width = w; height = h; started = true;
-        buf.writeString("GIF89a");
-        buf.writeShort(w); buf.writeShort(h);
-        buf.writeByte(0); buf.writeByte(0); buf.writeByte(0);
+    encode:function(frames,W,H){
+      var d=[];
+      function b(v){d.push(v&255);}
+      function w(v){d.push(v&255);d.push((v>>8)&255);}
+      function str(s){for(var i=0;i<s.length;i++)d.push(s.charCodeAt(i)&255);}
+      function blk(arr){var i=0;while(i<arr.length){var n=Math.min(255,arr.length-i);d.push(n);for(var j=0;j<n;j++)d.push(arr[i++]&255);}d.push(0);}
+      str('GIF89a');w(W);w(H);b(0x70);b(0);b(0);
+      b(0x21);b(0xFF);b(11);str('NETSCAPE2.0');b(3);b(1);w(0);b(0);
+      var tc=document.createElement('canvas');tc.width=W;tc.height=H;
+      var tx=tc.getContext('2d',{willReadFrequently:true});
+      for(var fi=0;fi<frames.length;fi++){
+        var fr=frames[fi];
+        tx.clearRect(0,0,W,H);tx.drawImage(fr.canvas,0,0,W,H);
+        var id=tx.getImageData(0,0,W,H).data,np=W*H;
+        var rgb=new Uint8Array(np*3);
+        for(var i=0;i<np;i++){rgb[i*3]=id[i*4];rgb[i*3+1]=id[i*4+1];rgb[i*3+2]=id[i*4+2];}
+        var q=nq(rgb,10),pal=q.pal(),pidx=new Uint8Array(np);
+        for(var i=0;i<np;i++)pidx[i]=q.map(id[i*4],id[i*4+1],id[i*4+2]);
+        var dc=Math.max(2,Math.round(fr.delay/10));
+        b(0x21);b(0xF9);b(4);b(0);w(dc);b(0);b(0);
+        b(0x2C);w(0);w(0);w(W);w(H);b(0x87);
+        for(var i=0;i<256*3;i++)b(i<pal.length?pal[i]:0);
+        b(8);blk(lzwEnc(pidx));
       }
-      // Graphic control extension
-      buf.writeByte(0x21); buf.writeByte(0xF9); buf.writeByte(4);
-      var flags = 0;
-      if (transparent >= 0) flags |= 1;
-      if (dispose >= 0) flags |= (dispose & 7) << 3;
-      buf.writeByte(flags);
-      buf.writeShort(delay);
-      buf.writeByte(transparent >= 0 ? transparent : 0);
-      buf.writeByte(0);
-      // Image descriptor
-      buf.writeByte(0x2C);
-      buf.writeShort(0); buf.writeShort(0);
-      buf.writeShort(w); buf.writeShort(h);
-      // Local palette
-      var palSize = palette ? Math.log2(palette.length / 3) - 1 : 7;
-      palSize = Math.max(0, Math.min(7, Math.round(palSize)));
-      var numColors = 1 << (palSize + 1);
-      buf.writeByte(0x80 | palSize);
-      if (palette) {
-        var needed = numColors * 3;
-        for (var i = 0; i < needed; i++) buf.writeByte(i < palette.length ? palette[i] : 0);
-      } else {
-        for (var j = 0; j < numColors * 3; j++) buf.writeByte(0);
-      }
-      // LZW
-      var colorDepth = palSize + 1;
-      var enc = new LZWEncoder(w, h, index, colorDepth);
-      enc.encode(buf);
-    },
-    finish: function() { buf.writeByte(0x3B); },
-    bytes: function() { return buf.toByteArray(); },
-    bytesView: function() { return buf.toByteArray(); }
+      b(0x3B);
+      return new Uint8Array(d);
+    }
   };
-}
-
-// Expose as global
-window.gifenc = { quantize, applyPalette, GIFEncoder };
-
-})(window);
+})();
 </script>
-
 <style>
-:root{--primary:#4f46e5;--success:#16a34a;--danger:#dc2626;--warning:#d97706;--bg:#f1f5f9;--card:#fff;--text:#0f172a}
-body{font-family:'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--text);margin:0;padding:10px;display:flex;flex-direction:column;align-items:center;touch-action:manipulation}
-.header{text-align:center;margin-bottom:20px;width:100%}
-.header h1{margin:0;font-size:28px;color:var(--primary)}
-.main-container{display:flex;gap:20px;max-width:1100px;width:100%;flex-wrap:wrap;justify-content:center}
-.canvas-section{background:var(--card);padding:20px;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,.1);display:flex;flex-direction:column;align-items:center;flex:1;min-width:380px}
-.canvas-wrapper{border:4px solid #e2e8f0;border-radius:16px;overflow:hidden;margin-bottom:20px;position:relative;background-image:linear-gradient(45deg,#f8fafc 25%,transparent 25%),linear-gradient(-45deg,#f8fafc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#f8fafc 75%),linear-gradient(-45deg,transparent 75%,#f8fafc 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;box-shadow:inset 0 2px 10px rgba(0,0,0,.05)}
-.sidebar{width:380px;background:var(--card);padding:24px;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,.1);display:flex;flex-direction:column;gap:20px}
-.step-box{border:2px solid #f1f5f9;border-radius:16px;padding:15px;position:relative}
-.step-label{position:absolute;top:-12px;left:15px;background:var(--primary);color:#fff;padding:2px 12px;border-radius:20px;font-size:14px;font-weight:700}
-.input-row{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+:root{--pr:#4f46e5;--ok:#16a34a;--er:#dc2626;--wa:#d97706;--bg:#f1f5f9;--cd:#fff;--tx:#0f172a}
+*{box-sizing:border-box}
+body{font-family:'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--tx);margin:0;padding:10px;display:flex;flex-direction:column;align-items:center;touch-action:manipulation}
+.hdr{text-align:center;margin-bottom:20px;width:100%}
+.hdr h1{margin:0;font-size:28px;color:var(--pr)}
+.wrap{display:flex;gap:20px;max-width:1100px;width:100%;flex-wrap:wrap;justify-content:center}
+.cs{background:var(--cd);padding:20px;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,.1);display:flex;flex-direction:column;align-items:center;flex:1;min-width:380px}
+.cb{border:4px solid #e2e8f0;border-radius:16px;overflow:hidden;margin-bottom:20px;background-image:linear-gradient(45deg,#f8fafc 25%,transparent 25%),linear-gradient(-45deg,#f8fafc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#f8fafc 75%),linear-gradient(-45deg,transparent 75%,#f8fafc 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
+.sb{width:380px;background:var(--cd);padding:24px;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,.1);display:flex;flex-direction:column;gap:20px}
+.bx{border:2px solid #f1f5f9;border-radius:16px;padding:15px;position:relative}
+.bl{position:absolute;top:-12px;left:15px;background:var(--pr);color:#fff;padding:2px 12px;border-radius:20px;font-size:14px;font-weight:700}
+.ir{display:flex;gap:10px;align-items:center;margin-bottom:10px}
 input[type=text]{flex:1;padding:12px 15px;border:2px solid #cbd5e1;border-radius:12px;font-size:18px}
 input[type=color]{width:50px;height:50px;border:2px solid #cbd5e1;border-radius:12px;cursor:pointer;padding:2px}
 .tabs{display:flex;gap:5px;background:#f1f5f9;padding:5px;border-radius:12px;margin-bottom:12px}
-.tab{flex:1;padding:10px 5px;text-align:center;cursor:pointer;border-radius:8px;font-size:16px;font-weight:700;transition:.3s;color:#64748b}
-.tab.active{background:var(--primary);color:#fff}
-.asset-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-height:250px;overflow-y:auto;padding:5px}
-.sticker-item{aspect-ratio:1;border:2px solid #f1f5f9;border-radius:12px;cursor:pointer;padding:5px;background:#fff;transition:.2s;width:100%;object-fit:contain}
-.sticker-item:hover{border-color:var(--primary);background:#eef2ff}
+.tab{flex:1;padding:10px 5px;text-align:center;cursor:pointer;border-radius:8px;font-size:16px;font-weight:700;color:#64748b;transition:.3s}
+.tab.active{background:var(--pr);color:#fff}
+.ag{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-height:250px;overflow-y:auto;padding:5px}
+.sit{aspect-ratio:1;border:2px solid #f1f5f9;border-radius:12px;cursor:pointer;padding:5px;background:#fff;width:100%;object-fit:contain;transition:.2s}
+.sit:hover{border-color:var(--pr);background:#eef2ff}
 .btn{padding:15px 20px;border:none;border-radius:16px;font-weight:800;font-size:18px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;box-shadow:0 4px 6px rgba(0,0,0,.1);margin-bottom:6px}
 .btn:last-child{margin-bottom:0}
 .btn:active{transform:translateY(2px);box-shadow:none}
-.btn-primary{background:var(--primary);color:#fff}
-.btn-success{background:var(--success);color:#fff}
-.btn-warning{background:var(--warning);color:#fff}
-.btn-gif{background:linear-gradient(135deg,#f43f5e,#a855f7,#3b82f6);color:#fff}
-.btn-export-gif{background:linear-gradient(135deg,#4f46e5,#a855f7);color:#fff}
-.layer-controls{display:flex;gap:10px;margin-bottom:15px;width:100%}
-.mini-btn{flex:1;padding:12px 5px;font-size:14px;font-weight:700;border-radius:12px;border:2px solid #e2e8f0;background:#fff;cursor:pointer}
-.mini-btn.del{background:#fff1f2;color:var(--danger);border-color:#fecaca}
-#fileInput,#gifFileInput,#fontInput{display:none}
-/* GIF清單 */
-#gifList{display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:160px;overflow-y:auto}
-.gif-item{display:flex;align-items:center;gap:8px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:10px;padding:6px 10px;cursor:pointer;transition:.2s}
-.gif-item:hover{border-color:var(--primary)}
-.gif-item img{width:40px;height:40px;object-fit:contain;border-radius:6px;background:#fff}
-.gif-item-name{flex:1;font-size:12px;color:#475569;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gif-item-del{background:#fee2e2;border:none;border-radius:6px;color:var(--danger);font-size:14px;cursor:pointer;padding:3px 7px}
-/* 匯出進度 */
-#exportOverlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.8);z-index:9999;align-items:center;justify-content:center}
-#exportOverlay.show{display:flex}
-.export-card{background:#fff;border-radius:24px;padding:40px 50px;text-align:center;max-width:340px;width:90%}
-.export-card h2{margin:0 0 6px;font-size:22px;color:#1e293b}
-.export-card p{margin:0 0 20px;color:#64748b;font-size:14px}
-.progress-bar-wrap{background:#f1f5f9;border-radius:99px;height:16px;overflow:hidden}
-.progress-bar-fill{height:100%;background:linear-gradient(90deg,#4f46e5,#a855f7);border-radius:99px;transition:width .15s;width:0%}
-.progress-label{font-size:13px;color:#64748b;margin-top:8px;font-weight:600}
-@media(max-width:600px){.sidebar{width:100%;padding:15px}.canvas-section{min-width:100%;padding:10px}.header h1{font-size:24px}.main-container{gap:10px}.btn{padding:18px;font-size:20px}}
+.bpr{background:var(--pr);color:#fff}.bok{background:var(--ok);color:#fff}.bwa{background:var(--wa);color:#fff}
+.bgif{background:linear-gradient(135deg,#f43f5e,#a855f7,#3b82f6);color:#fff;margin-top:8px}
+.bexp{background:linear-gradient(135deg,#4f46e5,#a855f7);color:#fff}
+.lcs{display:flex;gap:10px;margin-bottom:15px;width:100%}
+.mb{flex:1;padding:12px 5px;font-size:14px;font-weight:700;border-radius:12px;border:2px solid #e2e8f0;background:#fff;cursor:pointer}
+.mb.dl{background:#fff1f2;color:var(--er);border-color:#fecaca}
+#fi,#gfi,#fni{display:none}
+#gl{display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:160px;overflow-y:auto}
+.gi{display:flex;align-items:center;gap:8px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:10px;padding:6px 10px;cursor:pointer;transition:.2s}
+.gi:hover{border-color:var(--pr)}
+.gi img{width:40px;height:40px;object-fit:contain;border-radius:6px;background:#fff}
+.gin{flex:1;font-size:12px;color:#475569;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gid{background:#fee2e2;border:none;border-radius:6px;color:var(--er);font-size:14px;cursor:pointer;padding:3px 7px}
+#ov{display:none;position:fixed;inset:0;background:rgba(15,23,42,.8);z-index:9999;align-items:center;justify-content:center}
+#ov.show{display:flex}
+.ovc{background:#fff;border-radius:24px;padding:40px 50px;text-align:center;max-width:340px;width:90%}
+.ovc h2{margin:0 0 6px;font-size:22px;color:#1e293b}
+.ovc p{margin:0 0 20px;color:#64748b;font-size:14px}
+.pb{background:#f1f5f9;border-radius:99px;height:16px;overflow:hidden}
+.pbf{height:100%;background:linear-gradient(90deg,#4f46e5,#a855f7);border-radius:99px;transition:width .15s;width:0%}
+.pbl{font-size:13px;color:#64748b;margin-top:8px;font-weight:600}
+@media(max-width:600px){.sb{width:100%;padding:15px}.cs{min-width:100%;padding:10px}.wrap{gap:10px}.btn{padding:18px;font-size:20px}}
 </style>
 </head>
 <body>
-
-<div class="header"><h1>✨ 創意貼圖設計器</h1></div>
-
-<div class="main-container">
-  <div class="canvas-section">
-    <div class="layer-controls">
-      <button class="mini-btn" onclick="bringToFront()">🔼 移到最前</button>
-      <button class="mini-btn" onclick="sendToBack()">🔽 移到最後</button>
-      <button class="mini-btn del" onclick="deleteSelected()">🗑️ 刪除選中</button>
+<div class="hdr"><h1>✨ 創意貼圖設計器</h1></div>
+<div class="wrap">
+  <div class="cs">
+    <div class="lcs">
+      <button class="mb" onclick="bF()">🔼 移到最前</button>
+      <button class="mb" onclick="bB()">🔽 移到最後</button>
+      <button class="mb dl" onclick="bDel()">🗑️ 刪除選中</button>
     </div>
-    <div class="canvas-wrapper">
-      <canvas id="mainCanvas" width="370" height="320"></canvas>
-    </div>
+    <div class="cb"><canvas id="mc" width="370" height="320"></canvas></div>
     <div style="display:flex;flex-direction:column;gap:10px;width:100%">
-      <button class="btn btn-success" onclick="exportPNG()">💾 存檔 PNG（靜態圖）</button>
-      <button class="btn btn-export-gif" onclick="exportGIF()">🎞️ 存檔 GIF（保留動態！）</button>
+      <button class="btn bok" onclick="ePNG()">💾 存檔 PNG（靜態圖）</button>
+      <button class="btn bexp" onclick="eGIF()">🎞️ 存檔 GIF（保留動態！）</button>
     </div>
   </div>
-
-  <div class="sidebar">
-    <div class="step-box">
-      <span class="step-label">第 1 步</span>
-      <button class="btn btn-primary" style="background:#0891b2" onclick="triggerUpload()">📷 選取照片（JPG/PNG）</button>
-      <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)">
-      <button class="btn btn-gif" onclick="triggerGifUpload()">🎬 上傳動態 GIF 插圖</button>
-      <input type="file" id="gifFileInput" accept="image/gif" onchange="handleGifUpload(event)">
-      <div id="gifList"></div>
+  <div class="sb">
+    <div class="bx">
+      <span class="bl">第 1 步</span>
+      <button class="btn bpr" style="background:#0891b2" onclick="document.getElementById('fi').click()">📷 選取照片（JPG/PNG）</button>
+      <input type="file" id="fi" accept="image/*" onchange="upPhoto(event)">
+      <button class="btn bgif" onclick="document.getElementById('gfi').click()">🎬 上傳動態 GIF 插圖</button>
+      <input type="file" id="gfi" accept="image/gif" onchange="upGIF(event)">
+      <div id="gl"></div>
     </div>
-
-    <div class="step-box">
-      <span class="step-label">第 2 步</span>
+    <div class="bx">
+      <span class="bl">第 2 步</span>
       <div class="tabs">
-        <div class="tab active" onclick="changeTab('ears',this)">耳朵</div>
-        <div class="tab" onclick="changeTab('eyes',this)">眼睛</div>
-        <div class="tab" onclick="changeTab('noses',this)">鼻子</div>
-        <div class="tab" onclick="changeTab('mouths',this)">嘴巴</div>
+        <div class="tab active" onclick="chTab('ears',this)">耳朵</div>
+        <div class="tab" onclick="chTab('eyes',this)">眼睛</div>
+        <div class="tab" onclick="chTab('noses',this)">鼻子</div>
+        <div class="tab" onclick="chTab('mouths',this)">嘴巴</div>
       </div>
-      <div id="asset-container" class="asset-grid"></div>
+      <div id="ag" class="ag"></div>
     </div>
-
-    <div class="step-box">
-      <span class="step-label">第 3 步</span>
-      <div class="input-row">
-        <input type="text" id="textInput" value="早安" placeholder="在這裡打字..." onkeyup="updateActiveText()">
-        <input type="color" id="textColor" value="#4f46e5" onchange="updateActiveText()">
+    <div class="bx">
+      <span class="bl">第 3 步</span>
+      <div class="ir">
+        <input type="text" id="ti" value="早安" placeholder="在這裡打字..." onkeyup="upTxt()">
+        <input type="color" id="tc" value="#4f46e5" onchange="upTxt()">
       </div>
       <div style="margin-bottom:10px">
-        <button class="btn btn-warning" onclick="triggerFontUpload()">🔠 更換字型</button>
-        <input type="file" id="fontInput" accept=".ttf,.otf" onchange="handleFontUpload(event)">
+        <button class="btn bwa" onclick="document.getElementById('fni').click()">🔠 更換字型</button>
+        <input type="file" id="fni" accept=".ttf,.otf" onchange="upFont(event)">
       </div>
-      <button class="btn btn-primary" onclick="addNewText()">➕ 加入一段文字</button>
+      <button class="btn bpr" onclick="addTxt()">➕ 加入一段文字</button>
     </div>
-
     <div style="font-size:14px;color:#64748b;text-align:center;font-weight:700;background:#f8fafc;padding:10px;border-radius:12px">
       Billy ^.^ | Program improved by AI @2026
     </div>
   </div>
 </div>
-
-<!-- 匯出進度 -->
-<div id="exportOverlay">
-  <div class="export-card">
-    <h2 id="overlayTitle">🎞️ 製作動態 GIF 中…</h2>
-    <p id="overlayMsg">正在合成每一幀，請稍候</p>
-    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill"></div></div>
-    <div class="progress-label" id="progressLabel">0%</div>
+<div id="ov">
+  <div class="ovc">
+    <h2 id="ot">🎞️ 製作 GIF 中…</h2>
+    <p id="om">正在合成幀數</p>
+    <div class="pb"><div class="pbf" id="pf"></div></div>
+    <div class="pbl" id="pl">0%</div>
   </div>
 </div>
-
 <script>
-// ── 素材 ───────────────────────────────────────────────────
-const pagesBase = 'https://xxz14701.github.io/addpic02/images/';
-const assetManifest = {
-  ears:   ['ear_01.png','ear_02.png','ear_03.png','ear_04.png','ear_05.png','ear_06.png','ear_07.png','ear_08.png','ear_09.png','ear_010.png','ear_011.png','ear_012.png','ear_013.png','ear_014.png'],
-  eyes:   ['eye_01.png','eye_02.png','eye_03.png','eye_04.png','eye_05.png','eye_06.png','eye_07.png','eye_08.png','eye_09.png','eye_010.png','eye_011.png','eye_012.png','eye_013.png','eye_014.png','eye_015.png','eye_016.png','eye_017.png','eye_018.png','eye_019.png'],
-  noses:  ['nose_01.png','nose_02.png','nose_03.png','nose_04.png','nose_05.png'],
-  mouths: ['mouth_01.png','mouth_02.png','mouth_03.png','mouth_04.png','mouth_05.png','mouth_06.png','mouth_07.png','mouth_08.png','mouth_09.png','mouth_010.png']
+var BASE='https://xxz14701.github.io/addpic02/images/';
+var AM={
+  ears:['ear_01.png','ear_02.png','ear_03.png','ear_04.png','ear_05.png','ear_06.png','ear_07.png','ear_08.png','ear_09.png','ear_010.png','ear_011.png','ear_012.png','ear_013.png','ear_014.png'],
+  eyes:['eye_01.png','eye_02.png','eye_03.png','eye_04.png','eye_05.png','eye_06.png','eye_07.png','eye_08.png','eye_09.png','eye_010.png','eye_011.png','eye_012.png','eye_013.png','eye_014.png','eye_015.png','eye_016.png','eye_017.png','eye_018.png','eye_019.png'],
+  noses:['nose_01.png','nose_02.png','nose_03.png','nose_04.png','nose_05.png'],
+  mouths:['mouth_01.png','mouth_02.png','mouth_03.png','mouth_04.png','mouth_05.png','mouth_06.png','mouth_07.png','mouth_08.png','mouth_09.png','mouth_010.png']
 };
+var gObjs=[],cv,fCnt=0;
 
-// ── GIF 物件 ───────────────────────────────────────────────
-const gifObjects = [];
-let canvas, customFontCount = 0;
-
-window.onload = () => {
-  canvas = new fabric.Canvas('mainCanvas', { preserveObjectStacking: true });
-  addNewText();
-  renderAssetGrid('ears');
-  canvas.on('selection:created', e => onObjectSelected(e.selected[0]));
-  canvas.on('selection:updated', e => onObjectSelected(e.selected[0]));
-  document.addEventListener('keydown', e => {
-    if ((e.key==='Delete'||e.key==='Backspace') && document.activeElement.tagName!=='INPUT') deleteSelected();
+window.onload=function(){
+  cv=new fabric.Canvas('mc',{preserveObjectStacking:true});
+  addTxt();drawGrid('ears');
+  cv.on('selection:created',function(e){onSel(e.selected[0]);});
+  cv.on('selection:updated',function(e){onSel(e.selected[0]);});
+  document.addEventListener('keydown',function(e){
+    if((e.key==='Delete'||e.key==='Backspace')&&document.activeElement.tagName!=='INPUT')bDel();
   });
 };
-
-function onObjectSelected(obj) {
-  if (obj?.type==='i-text') {
-    document.getElementById('textInput').value = obj.text;
-    document.getElementById('textColor').value = obj.fill;
-  }
-}
-
-function addNewText() {
-  const t = new fabric.IText(document.getElementById('textInput').value||'您好', {
-    left:185, top:160, originX:'center', originY:'center',
-    fontSize:70, fontFamily:'Microsoft JhengHei,sans-serif',
-    fill: document.getElementById('textColor').value,
-    fontWeight:'bold', cornerColor:'#4f46e5', cornerSize:12, transparentCorners:false
+function onSel(o){if(o&&o.type==='i-text'){document.getElementById('ti').value=o.text;document.getElementById('tc').value=o.fill;}}
+function addTxt(){
+  var t=new fabric.IText(document.getElementById('ti').value||'您好',{
+    left:185,top:160,originX:'center',originY:'center',fontSize:70,
+    fontFamily:'Microsoft JhengHei,sans-serif',fill:document.getElementById('tc').value,
+    fontWeight:'bold',cornerColor:'#4f46e5',cornerSize:12,transparentCorners:false
   });
-  canvas.add(t); canvas.setActiveObject(t); canvas.renderAll();
+  cv.add(t);cv.setActiveObject(t);cv.renderAll();
 }
-
-function updateActiveText() {
-  const o = canvas.getActiveObject();
-  if (o?.type==='i-text') {
-    o.set({ text: document.getElementById('textInput').value, fill: document.getElementById('textColor').value });
-    canvas.renderAll();
-  }
+function upTxt(){var o=cv.getActiveObject();if(o&&o.type==='i-text'){o.set({text:document.getElementById('ti').value,fill:document.getElementById('tc').value});cv.renderAll();}}
+function upFont(e){
+  var f=e.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(ev){var nm='F'+(fCnt++);new FontFace(nm,ev.target.result).load().then(function(ff){document.fonts.add(ff);var o=cv.getActiveObject();if(o&&o.type==='i-text'){o.set('fontFamily',nm);cv.renderAll();}});};
+  r.readAsArrayBuffer(f);e.target.value='';
 }
-
-function triggerFontUpload() { document.getElementById('fontInput').click(); }
-function handleFontUpload(e) {
-  const file = e.target.files[0]; if (!file) return;
-  const r = new FileReader();
-  r.onload = ev => {
-    const name = 'Font'+(customFontCount++);
-    new FontFace(name, ev.target.result).load().then(f => {
-      document.fonts.add(f);
-      const o = canvas.getActiveObject();
-      if (o?.type==='i-text') { o.set('fontFamily', name); canvas.renderAll(); }
-    });
-  };
-  r.readAsArrayBuffer(file); e.target.value='';
-}
-
-function renderAssetGrid(cat) {
-  const c = document.getElementById('asset-container'); c.innerHTML='';
-  (assetManifest[cat]||[]).forEach(f => {
-    const url = `${pagesBase}${cat}/${f}`;
-    const img = document.createElement('img');
-    img.src = url; img.className='sticker-item'; img.loading='lazy';
-    img.onclick = () => addSticker(url);
-    img.onerror = () => img.style.display='none';
+function drawGrid(cat){
+  var c=document.getElementById('ag');c.innerHTML='';
+  (AM[cat]||[]).forEach(function(f){
+    var url=BASE+cat+'/'+f,img=document.createElement('img');
+    img.src=url;img.className='sit';img.loading='lazy';
+    img.onclick=function(){addSt(url);};
+    img.onerror=function(){img.style.display='none';};
     c.appendChild(img);
   });
 }
-function changeTab(cat, el) {
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active'); renderAssetGrid(cat);
+function chTab(cat,el){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');drawGrid(cat);}
+function addSt(url){fabric.Image.fromURL(url,function(img){img.scale(0.6).set({left:185,top:160,originX:'center',originY:'center',cornerColor:'#4f46e5',cornerSize:12,transparentCorners:false});cv.add(img);cv.setActiveObject(img);cv.renderAll();},{crossOrigin:'anonymous'});}
+function upPhoto(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){fabric.Image.fromURL(ev.target.result,function(img){if(img.width>350)img.scaleToWidth(350);img.set({left:185,top:160,originX:'center',originY:'center'});cv.add(img);cv.setActiveObject(img);cv.renderAll();});};r.readAsDataURL(f);e.target.value='';}
+function ePNG(){cv.discardActiveObject();cv.renderAll();var a=document.createElement('a');a.download='創意貼圖.png';a.href=cv.toDataURL({format:'png',quality:1});a.click();}
+function bF(){var o=cv.getActiveObject();if(o){o.bringToFront();cv.renderAll();}}
+function bB(){var o=cv.getActiveObject();if(o){o.sendToBack();cv.renderAll();}}
+function bDel(){
+  var os=cv.getActiveObjects();if(!os.length)return;
+  os.forEach(function(o){var i=gObjs.findIndex(function(g){return g.fo===o;});if(i!==-1){clrT(gObjs[i]);gObjs.splice(i,1);}});
+  cv.remove.apply(cv,os);cv.discardActiveObject();cv.renderAll();rfList();
 }
-function addSticker(url) {
-  fabric.Image.fromURL(url, img => {
-    img.scale(0.6).set({ left:185, top:160, originX:'center', originY:'center',
-      cornerColor:'#4f46e5', cornerSize:12, transparentCorners:false });
-    canvas.add(img); canvas.setActiveObject(img); canvas.renderAll();
-  }, { crossOrigin:'anonymous' });
-}
-
-function triggerUpload() { document.getElementById('fileInput').click(); }
-function handleFileUpload(e) {
-  const file = e.target.files[0]; if (!file) return;
-  const r = new FileReader();
-  r.onload = f => {
-    fabric.Image.fromURL(f.target.result, img => {
-      if (img.width>350) img.scaleToWidth(350);
-      img.set({ left:185, top:160, originX:'center', originY:'center' });
-      canvas.add(img); canvas.setActiveObject(img); canvas.renderAll();
-    });
+function upGIF(e){
+  var f=e.target.files[0];if(!f)return;e.target.value='';
+  var r=new FileReader();
+  r.onload=function(ev){
+    var u8=new Uint8Array(ev.target.result),dec;
+    try{dec=new GifDecoder(u8);}catch(err){alert('GIF 解析失敗：'+err.message);return;}
+    var frs=dec.getFrames();
+    if(!frs.length){alert('GIF 沒有找到可用的幀');return;}
+    var W=dec.width,H=dec.height,ms=160,sc=Math.min(ms/W,ms/H,1);
+    var dw=Math.round(W*sc),dh=Math.round(H*sc);
+    var pc=document.createElement('canvas');pc.width=dw;pc.height=dh;
+    var px=pc.getContext('2d');px.drawImage(frs[0].canvas,0,0,dw,dh);
+    var fo=new fabric.Image(pc,{left:185,top:160,originX:'center',originY:'center',cornerColor:'#4f46e5',cornerSize:12,transparentCorners:false});
+    cv.add(fo);cv.setActiveObject(fo);cv.renderAll();
+    var g={id:'g'+Date.now(),name:f.name,frames:frs,W:W,H:H,dw:dw,dh:dh,pc:pc,px:px,fo:fo,cf:0,t:null,prev:frs[0].canvas.toDataURL()};
+    gObjs.push(g);startAnim(g);rfList();
   };
-  r.readAsDataURL(file); e.target.value='';
+  r.readAsArrayBuffer(f);
 }
-
-function exportPNG() {
-  canvas.discardActiveObject(); canvas.renderAll();
-  const a = document.createElement('a');
-  a.download='我的創意貼圖.png';
-  a.href = canvas.toDataURL({format:'png',quality:1}); a.click();
+function startAnim(g){
+  clrT(g);
+  function tick(){g.cf=(g.cf+1)%g.frames.length;g.px.clearRect(0,0,g.dw,g.dh);g.px.drawImage(g.frames[g.cf].canvas,0,0,g.dw,g.dh);g.fo.setElement(g.pc);cv.renderAll();g.t=setTimeout(tick,g.frames[g.cf].delay);}
+  g.t=setTimeout(tick,g.frames[0].delay);
 }
-
-function bringToFront() { const o=canvas.getActiveObject(); if(o){o.bringToFront();canvas.renderAll();} }
-function sendToBack()   { const o=canvas.getActiveObject(); if(o){o.sendToBack(); canvas.renderAll();} }
-function deleteSelected() {
-  const objs = canvas.getActiveObjects(); if (!objs.length) return;
-  objs.forEach(o => {
-    const idx = gifObjects.findIndex(g=>g.fabricObj===o);
-    if (idx!==-1) { clearGifTimer(gifObjects[idx]); gifObjects.splice(idx,1); }
-  });
-  canvas.remove(...objs); canvas.discardActiveObject(); canvas.renderAll();
-  refreshGifList();
-}
-
-// ══════════════════════════════════════════════════════════════
-//  GIF 上傳、解碼、在 Fabric 動畫
-// ══════════════════════════════════════════════════════════════
-function triggerGifUpload() { document.getElementById('gifFileInput').click(); }
-
-async function handleGifUpload(e) {
-  const file = e.target.files[0]; if (!file) return;
-  e.target.value='';
-  const buf = await file.arrayBuffer();
-  const uint8 = new Uint8Array(buf);
-  let gr;
-  try { gr = new GifReader(uint8); }
-  catch(err) { alert('GIF 解析失敗，請確認是正確的 GIF 檔案\n'+err); return; }
-
-  const W = gr.width, H = gr.height;
-  const frames = [], delays = [];
-
-  // 用合成方式逐幀解碼（處理 disposal）
-  const compCv = document.createElement('canvas'); compCv.width=W; compCv.height=H;
-  const compCtx = compCv.getContext('2d');
-
-  for (let i=0; i<gr.numFrames(); i++) {
-    const info = gr.frameInfo(i);
-    const pix = new Uint8ClampedArray(W*H*4);
-    gr.decodeAndBlitFrameRGBA(i, pix);
-    const fc = document.createElement('canvas'); fc.width=W; fc.height=H;
-    fc.getContext('2d').putImageData(new ImageData(pix,W,H), 0, 0);
-    if (info.disposal===2) compCtx.clearRect(info.x||0, info.y||0, info.width||W, info.height||H);
-    compCtx.drawImage(fc, info.x||0, info.y||0);
-    const snap = document.createElement('canvas'); snap.width=W; snap.height=H;
-    snap.getContext('2d').drawImage(compCv,0,0);
-    frames.push(snap);
-    delays.push(Math.max(20,(info.delay||10)*10));
-  }
-
-  const maxSide=160, sc=Math.min(maxSide/W, maxSide/H, 1);
-  const dispW=Math.round(W*sc), dispH=Math.round(H*sc);
-
-  const proxyCv = document.createElement('canvas'); proxyCv.width=dispW; proxyCv.height=dispH;
-  const proxyCtx = proxyCv.getContext('2d');
-  proxyCtx.drawImage(frames[0],0,0,dispW,dispH);
-
-  const fabricObj = new fabric.Image(proxyCv, {
-    left:185, top:160, originX:'center', originY:'center',
-    cornerColor:'#4f46e5', cornerSize:12, transparentCorners:false
-  });
-  canvas.add(fabricObj); canvas.setActiveObject(fabricObj); canvas.renderAll();
-
-  const entry = {
-    id:'gif_'+Date.now(), name:file.name,
-    frames, delays, srcW:W, srcH:H, dispW, dispH,
-    proxyCv, proxyCtx, fabricObj,
-    currentFrame:0, timer:null,
-    previewUrl: frames[0].toDataURL()
-  };
-  gifObjects.push(entry);
-  startGifAnimation(entry);
-  refreshGifList();
-}
-
-function startGifAnimation(g) {
-  clearGifTimer(g);
-  const tick = () => {
-    g.currentFrame = (g.currentFrame+1) % g.frames.length;
-    g.proxyCtx.clearRect(0,0,g.dispW,g.dispH);
-    g.proxyCtx.drawImage(g.frames[g.currentFrame],0,0,g.dispW,g.dispH);
-    g.fabricObj.setElement(g.proxyCv);
-    canvas.renderAll();
-    g.timer = setTimeout(tick, g.delays[g.currentFrame]);
-  };
-  g.timer = setTimeout(tick, g.delays[0]);
-}
-function clearGifTimer(g) { if(g.timer){clearTimeout(g.timer);g.timer=null;} }
-
-function refreshGifList() {
-  const list = document.getElementById('gifList'); list.innerHTML='';
-  gifObjects.forEach(g => {
-    const item = document.createElement('div');
-    item.className='gif-item';
-    item.innerHTML=`<img src="${g.previewUrl}"><span class="gif-item-name">${g.name}</span>
-      <button class="gif-item-del" onclick="removeGif('${g.id}',event)">✕</button>`;
-    item.onclick = () => { canvas.setActiveObject(g.fabricObj); canvas.renderAll(); };
-    list.appendChild(item);
+function clrT(g){if(g.t){clearTimeout(g.t);g.t=null;}}
+function rfList(){
+  var l=document.getElementById('gl');l.innerHTML='';
+  gObjs.forEach(function(g){
+    var d=document.createElement('div');d.className='gi';
+    d.innerHTML='<img src="'+g.prev+'"><span class="gin">'+g.name+'</span><button class="gid" onclick="rmGIF(\''+g.id+'\',event)">✕</button>';
+    d.onclick=function(){cv.setActiveObject(g.fo);cv.renderAll();};
+    l.appendChild(d);
   });
 }
-function removeGif(id, e) {
+function rmGIF(id,e){
   e.stopPropagation();
-  const idx = gifObjects.findIndex(g=>g.id===id); if(idx===-1)return;
-  clearGifTimer(gifObjects[idx]); canvas.remove(gifObjects[idx].fabricObj);
-  canvas.renderAll(); gifObjects.splice(idx,1); refreshGifList();
+  var i=gObjs.findIndex(function(g){return g.id===id;});if(i===-1)return;
+  clrT(gObjs[i]);cv.remove(gObjs[i].fo);cv.renderAll();gObjs.splice(i,1);rfList();
 }
-
-// ══════════════════════════════════════════════════════════════
-//  GIF 匯出（gifenc 已完整內嵌，100% 離線可用）
-// ══════════════════════════════════════════════════════════════
-async function exportGIF() {
-  if (!gifObjects.length) {
-    alert('您還沒有上傳動態 GIF！\n請先按「上傳動態 GIF 插圖」再使用此功能。\n（靜態存檔請按「存檔 PNG」）');
-    return;
-  }
-  // 暫停所有GIF動畫
-  gifObjects.forEach(g=>clearGifTimer(g));
-  canvas.discardActiveObject(); canvas.renderAll();
-
-  showOverlay('製作動態 GIF 中…','正在計算幀數');
-  await sleep(30);
-
-  const CW=370, CH=320;
-  const totalFrames = Math.min(48, lcmAll(gifObjects.map(g=>g.frames.length)));
-  const longestMs = Math.max(...gifObjects.map(g=>g.delays.reduce((a,b)=>a+b,0)));
-  const frameDelay = Math.max(5, Math.round(longestMs/totalFrames/10)); // cs
-
-  // 截取Fabric靜態層（暫時隱藏所有GIF代理）
-  gifObjects.forEach(g=>g.fabricObj.set('opacity',0));
-  canvas.renderAll();
-  const bgDataUrl = canvas.toDataURL({format:'png',quality:1});
-  gifObjects.forEach(g=>g.fabricObj.set('opacity',1));
-  canvas.renderAll();
-  const bgImg = await loadImage(bgDataUrl);
-
-  const { GIFEncoder, quantize, applyPalette } = window.gifenc;
-  const encoder = GIFEncoder();
-  const comp = document.createElement('canvas'); comp.width=CW; comp.height=CH;
-  const ctx = comp.getContext('2d', {willReadFrequently:true});
-
-  for (let fi=0; fi<totalFrames; fi++) {
-    ctx.clearRect(0,0,CW,CH);
-    ctx.drawImage(bgImg,0,0);
-
-    for (const g of gifObjects) {
-      const frameIdx = fi % g.frames.length;
-      const fo = g.fabricObj;
-      const m = fo.calcTransformMatrix();
-      ctx.save();
-      ctx.transform(m[0],m[1],m[2],m[3],m[4],m[5]);
-      ctx.drawImage(g.frames[frameIdx], -fo.width/2, -fo.height/2, fo.width, fo.height);
-      ctx.restore();
-    }
-
-    const px = ctx.getImageData(0,0,CW,CH).data;
-    const palette = quantize(px, 256);
-    const index = applyPalette(px, palette);
-    encoder.writeFrame(index, CW, CH, { palette, delay: frameDelay });
-
-    setProgress(Math.round((fi+1)/totalFrames*100), `合成 ${fi+1}/${totalFrames} 幀`);
-    await sleep(0);
-  }
-
-  encoder.finish();
-  const blob = new Blob([encoder.bytes()], {type:'image/gif'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.download='我的動態貼圖.gif'; a.href=url; a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),5000);
-
-  hideOverlay();
-  gifObjects.forEach(g=>startGifAnimation(g));
+function eGIF(){
+  if(!gObjs.length){alert('您還沒有上傳動態 GIF！\n請先按「上傳動態 GIF 插圖」。\n（靜態存檔請按「存檔 PNG」）');return;}
+  gObjs.forEach(function(g){clrT(g);});
+  cv.discardActiveObject();cv.renderAll();
+  showOv('製作 GIF 中…','準備合成幀數…');
+  setTimeout(function(){
+    try{
+      var CW=370,CH=320;
+      var tf=Math.min(48,lcmAll(gObjs.map(function(g){return g.frames.length;})));
+      var lms=Math.max.apply(null,gObjs.map(function(g){return g.frames.reduce(function(s,f){return s+f.delay;},0);}));
+      var fd=Math.max(50,Math.round(lms/tf));
+      gObjs.forEach(function(g){g.fo.set('opacity',0);});cv.renderAll();
+      var bgUrl=cv.toDataURL({format:'png',quality:1});
+      gObjs.forEach(function(g){g.fo.set('opacity',1);});cv.renderAll();
+      var bgI=new Image();
+      bgI.onload=function(){
+        var comp=document.createElement('canvas');comp.width=CW;comp.height=CH;
+        var ctx=comp.getContext('2d',{willReadFrequently:true});
+        var out=[];
+        for(var fi=0;fi<tf;fi++){
+          ctx.clearRect(0,0,CW,CH);ctx.drawImage(bgI,0,0);
+          gObjs.forEach(function(g){
+            var fi2=fi%g.frames.length,fo=g.fo,m=fo.calcTransformMatrix();
+            ctx.save();ctx.transform(m[0],m[1],m[2],m[3],m[4],m[5]);
+            ctx.drawImage(g.frames[fi2].canvas,-fo.width/2,-fo.height/2,fo.width,fo.height);
+            ctx.restore();
+          });
+          var sc=document.createElement('canvas');sc.width=CW;sc.height=CH;sc.getContext('2d').drawImage(comp,0,0);
+          out.push({canvas:sc,delay:fd});
+          setPr(Math.round((fi+1)/tf*70),'合成 '+(fi+1)+'/'+tf+' 幀');
+        }
+        setPr(75,'色彩量化中…');
+        setTimeout(function(){
+          try{
+            var bytes=GifBuilder.encode(out,CW,CH);
+            setPr(100,'完成！');
+            setTimeout(function(){
+              var blob=new Blob([bytes],{type:'image/gif'});
+              var url=URL.createObjectURL(blob);
+              var a=document.createElement('a');a.download='動態貼圖.gif';a.href=url;a.click();
+              setTimeout(function(){URL.revokeObjectURL(url);},5000);
+              hideOv();gObjs.forEach(function(g){startAnim(g);});
+            },200);
+          }catch(e2){hideOv();alert('GIF 編碼失敗：'+e2.message);gObjs.forEach(function(g){startAnim(g);});}
+        },30);
+      };
+      bgI.src=bgUrl;
+    }catch(e){hideOv();alert('匯出失敗：'+e.message);gObjs.forEach(function(g){startAnim(g);});}
+  },50);
 }
-
-// ── 工具 ─────────────────────────────────────────────────────
-function showOverlay(t,m){ document.getElementById('overlayTitle').textContent='🎞️ '+t; document.getElementById('overlayMsg').textContent=m; setProgress(0,''); document.getElementById('exportOverlay').classList.add('show'); }
-function hideOverlay(){ document.getElementById('exportOverlay').classList.remove('show'); }
-function setProgress(p,l){ document.getElementById('progressFill').style.width=p+'%'; document.getElementById('progressLabel').textContent=l||p+'%'; }
-function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
-function loadImage(url){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; }); }
+function showOv(t,m){document.getElementById('ot').textContent='🎞️ '+t;document.getElementById('om').textContent=m;setPr(0,'');document.getElementById('ov').classList.add('show');}
+function hideOv(){document.getElementById('ov').classList.remove('show');}
+function setPr(p,l){document.getElementById('pf').style.width=p+'%';document.getElementById('pl').textContent=l||p+'%';}
 function gcd(a,b){return b===0?a:gcd(b,a%b);}
-function lcm(a,b){return a*b/gcd(a,b);}
-function lcmAll(arr){let r=arr[0]||1;for(let i=1;i<arr.length;i++){r=lcm(r,arr[i]);if(r>48)return 48;}return r;}
+function lcm(a,b){return Math.round(a/gcd(a,b)*b);}
+function lcmAll(arr){var r=arr[0]||1;for(var i=1;i<arr.length;i++){r=lcm(r,arr[i]);if(r>48)return 48;}return r;}
 </script>
 </body>
 </html>
