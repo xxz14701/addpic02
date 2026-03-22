@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="shortcut icon" href="01.png">
+    <title>創意表情設計器</title>
+    <!-- 基礎庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <!-- GIF 處理庫：這就是您缺少的關鍵檔案 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.4.5/gifshot.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #d97706;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --text: #0f172a;
+        }
+
+        body {
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            touch-action: manipulation;
+        }
+
+        .header { text-align: center; margin-bottom: 20px; width: 100%; }
+        .header h1 { margin: 0; font-size: 28px; color: var(--primary); }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1100px;
+            width: 100%;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .canvas-section {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            min-width: 380px;
+        }
+
+        .canvas-wrapper {
+            border: 4px solid #e2e8f0;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            position: relative;
+            background-image: 
+                linear-gradient(45deg, #f8fafc 25%, transparent 25%), 
+                linear-gradient(-45deg, #f8fafc 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #f8fafc 75%), 
+                linear-gradient(-45deg, transparent 75%, #f8fafc 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            width: 370px;
+            height: 320px;
+        }
+
+        /* GIF 預覽層 */
+        #gifPreview {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+            object-fit: contain;
+            display: none;
+            pointer-events: none;
+        }
+
+        .canvas-container {
+            z-index: 10 !important;
+        }
+
+        .sidebar {
+            width: 380px;
+            background: var(--card);
+            padding: 24px;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .step-box {
+            border: 2px solid #f1f5f9;
+            border-radius: 16px;
+            padding: 15px;
+            position: relative;
+        }
+
+        .step-label {
+            position: absolute;
+            top: -12px; left: 15px;
+            background: var(--primary);
+            color: white;
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .tabs {
+            display: flex; gap: 5px;
+            background: #f1f5f9;
+            padding: 5px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        .tab {
+            flex: 1; padding: 10px 5px;
+            text-align: center; cursor: pointer;
+            border-radius: 8px; font-size: 16px;
+            font-weight: bold; color: #64748b;
+        }
+
+        .tab.active { background: var(--primary); color: white; }
+
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            max-height: 250px;
+            overflow-y: auto;
+            padding: 5px;
+        }
+
+        .sticker-item {
+            aspect-ratio: 1;
+            border: 2px solid #f1f5f9;
+            border-radius: 12px;
+            cursor: pointer;
+            padding: 5px;
+            background: #fff;
+            width: 100%;
+            object-fit: contain;
+        }
+
+        .btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+
+        .layer-controls { display: flex; gap: 10px; margin-bottom: 15px; width: 100%; }
+        
+        .mini-btn { 
+            flex: 1; padding: 12px 5px; font-size: 14px; 
+            font-weight: bold; border-radius: 12px; 
+            border: 2px solid #e2e8f0; background: white; cursor: pointer; 
+        }
+
+        #loadingOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 99999;
+        }
+
+        .spinner {
+            width: 50px; height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #fileInput, #fontInput { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div id="loadingText">正在合成您的貼圖...</div>
+    </div>
+
+    <div class="header">
+        <h1>創意貼圖設計器</h1>
+    </div>
+
+    <div class="main-container">
+        <div class="canvas-section">
+            <div class="layer-controls">
+                <button class="mini-btn" onclick="bringToFront()">🔼 移到前面</button>
+                <button class="mini-btn" onclick="sendToBack()">🔽 移到後面</button>
+                <button class="mini-btn" style="color:red; border-color:#fecaca;" onclick="deleteSelected()">🗑️ 刪除</button>
+            </div>
+            
+            <div class="canvas-wrapper">
+                <!-- GIF 預覽圖層 -->
+                <img id="gifPreview" src="">
+                <!-- 裝飾畫布圖層 -->
+                <canvas id="mainCanvas" width="370" height="320"></canvas>
+            </div>
+
+            <button class="btn btn-success" id="exportBtn" onclick="exportFinal()">💾 完成並存檔 (透明圖/GIF)</button>
+        </div>
+
+        <div class="sidebar">
+            <div class="step-box">
+                <span class="step-label">第 1 步：底圖</span>
+                <button class="btn btn-primary" style="background-color: #0891b2;" onclick="document.getElementById('fileInput').click()">📷 選取照片或 GIF</button>
+                <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)">
+            </div>
+
+            <div class="step-box">
+                <span class="step-label">第 2 步：裝飾</span>
+                <div class="tabs">
+                    <div class="tab active" onclick="changeTab('ears', this)">耳朵</div>
+                    <div class="tab" onclick="changeTab('eyes', this)">眼睛</div>
+                    <div class="tab" onclick="changeTab('noses', this)">鼻子</div>
+                    <div class="tab" onclick="changeTab('mouths', this)">嘴巴</div>
+                </div>
+                <div id="asset-container" class="asset-grid"></div>
+            </div>
+
+            <div class="step-box">
+                <span class="step-label">第 3 步：文字</span>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <input type="text" id="textInput" value="早安" style="flex:1; padding:10px; border-radius:12px; border:2px solid #cbd5e1;" onkeyup="updateActiveText()">
+                    <input type="color" id="textColor" value="#4f46e5" style="width:45px; height:45px; border-radius:8px;" onchange="updateActiveText()">
+                </div>
+                <button class="btn btn-warning" style="margin-bottom:10px;" onclick="document.getElementById('fontInput').click()">🔠 更換字型</button>
+                <input type="file" id="fontInput" accept=".ttf,.otf" onchange="handleFontUpload(event)">
+                <button class="btn btn-primary" onclick="addNewText()">➕ 加入文字</button>
+            </div>
+
+            <div style="font-size: 12px; color: #64748b; text-align: center;">
+                Billy ^.^ | GIF Powered by gifshot.js
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const pagesBase = 'https://xxz14701.github.io/addpic02/images/';
+        const assetManifest = {
+            ears: ['ear_01.png', 'ear_02.png', 'ear_03.png', 'ear_04.png', 'ear_05.png', 'ear_06.png', 'ear_07.png', 'ear_08.png', 'ear_09.png', 'ear_010.png', 'ear_011.png', 'ear_012.png', 'ear_013.png', 'ear_014.png'], 
+            eyes: ['eye_01.png', 'eye_02.png', 'eye_03.png', 'eye_04.png', 'eye_05.png', 'eye_06.png', 'eye_07.png', 'eye_08.png', 'eye_09.png', 'eye_010.png', 'eye_011.png', 'eye_012.png', 'eye_013.png', 'eye_014.png', 'eye_015.png', 'eye_016.png', 'eye_017.png', 'eye_018.png', 'eye_019.png'],
+            noses: ['nose_01.png', 'nose_02.png', 'nose_03.png', 'nose_04.png', 'nose_05.png'],
+            mouths: ['mouth_01.png', 'mouth_02.png', 'mouth_03.png', 'mouth_04.png', 'mouth_05.png', 'mouth_06.png', 'mouth_07.png', 'mouth_08.png', 'mouth_09.png', 'mouth_010.png']
+        };
+
+        let canvas;
+        let isGifMode = false;
+        let baseFileUrl = ''; // 存儲底圖原始 URL
+
+        window.onload = function() {
+            canvas = new fabric.Canvas('mainCanvas', { 
+                preserveObjectStacking: true,
+                backgroundColor: 'transparent'
+            });
+            renderAssetGrid('ears');
+            addNewText();
+        };
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(f) {
+                baseFileUrl = f.target.result;
+                const preview = document.getElementById('gifPreview');
+                
+                if (file.type === 'image/gif') {
+                    isGifMode = true;
+                    preview.src = baseFileUrl;
+                    preview.style.display = 'block';
+                    // 清除畫布上的底圖（如果有的話），只保留裝飾
+                    canvas.getObjects().forEach(o => { if(o.isBg) canvas.remove(o); });
+                } else {
+                    isGifMode = false;
+                    preview.style.display = 'none';
+                    fabric.Image.fromURL(baseFileUrl, function(img) {
+                        img.scaleToWidth(350);
+                        img.set({ left: 185, top: 160, originX: 'center', originY: 'center', isBg: true });
+                        canvas.add(img);
+                        img.sendToBack();
+                        canvas.renderAll();
+                    }, { crossOrigin: 'anonymous' });
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function exportFinal() {
+            if (!baseFileUrl && !isGifMode && canvas.getObjects().length === 0) {
+                return alert("畫布是空的喔！");
+            }
+
+            document.getElementById('loadingOverlay').style.display = 'flex';
+
+            if (isGifMode) {
+                // --- GIF 合成模式 ---
+                // 1. 取得畫布上的裝飾物（去背景底圖後的 PNG）
+                canvas.discardActiveObject();
+                // 暫時隱藏背景圖層（如果有）
+                const bgs = canvas.getObjects().filter(o => o.isBg);
+                bgs.forEach(b => b.visible = false);
+                canvas.renderAll();
+                
+                const overlayImage = canvas.toDataURL({ format: 'png' });
+                
+                // 還原背景顯示
+                bgs.forEach(b => b.visible = true);
+                canvas.renderAll();
+
+                // 2. 使用 gifshot 合成
+                gifshot.createGIF({
+                    gifWidth: 370,
+                    gifHeight: 320,
+                    video: [baseFileUrl], // gifshot 可以讀取 gif 作為 video 來源
+                    numFrames: 10,
+                    interval: 0.1,
+                    overlay: [overlayImage], // 將裝飾物蓋在每一幀上
+                    progressCallback: (p) => {
+                        document.getElementById('loadingText').innerText = `合成中: ${Math.round(p * 100)}%`;
+                    }
+                }, function(obj) {
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    if (!obj.error) {
+                        const link = document.createElement('a');
+                        link.download = 'my_animated_sticker.gif';
+                        link.href = obj.image;
+                        link.click();
+                    } else {
+                        alert("GIF 合成失敗。請確保在 GitHub Pages 環境下執行。");
+                    }
+                });
+
+            } else {
+                // --- 靜態圖模式 ---
+                canvas.discardActiveObject();
+                canvas.renderAll();
+                const link = document.createElement('a');
+                link.download = 'my_sticker.png';
+                link.href = canvas.toDataURL({ format: 'png', quality: 1.0 });
+                link.click();
+                document.getElementById('loadingOverlay').style.display = 'none';
+            }
+        }
+
+        // --- 以下為基礎功能保持不變 ---
+        function renderAssetGrid(category) {
+            const container = document.getElementById('asset-container');
+            container.innerHTML = '';
+            assetManifest[category].forEach(fileName => {
+                const imgUrl = `${pagesBase}${category}/${fileName}`;
+                const imgEl = document.createElement('img');
+                imgEl.src = imgUrl;
+                imgEl.className = 'sticker-item';
+                imgEl.onclick = () => {
+                    fabric.Image.fromURL(imgUrl, (img) => {
+                        img.scale(0.6).set({ left: 185, top: 160, originX: 'center', originY: 'center' });
+                        canvas.add(img);
+                        canvas.setActiveObject(img);
+                        canvas.renderAll();
+                    }, { crossOrigin: 'anonymous' });
+                };
+                container.appendChild(imgEl);
+            });
+        }
+
+        function changeTab(cat, el) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            renderAssetGrid(cat);
+        }
+
+        function addNewText() {
+            const t = new fabric.IText(document.getElementById('textInput').value, {
+                left: 185, top: 160, originX: 'center', originY: 'center',
+                fontSize: 60, fill: document.getElementById('textColor').value,
+                fontFamily: 'sans-serif', fontWeight: 'bold'
+            });
+            canvas.add(t);
+            canvas.setActiveObject(t);
+            canvas.renderAll();
+        }
+
+        function updateActiveText() {
+            const obj = canvas.getActiveObject();
+            if (obj && obj.type === 'i-text') {
+                obj.set({ text: document.getElementById('textInput').value, fill: document.getElementById('textColor').value });
+                canvas.renderAll();
+            }
+        }
+
+        function handleFontUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const fontFace = new FontFace('CustomFont', event.target.result);
+                fontFace.load().then(function(loaded) {
+                    document.fonts.add(loaded);
+                    const obj = canvas.getActiveObject();
+                    if (obj && obj.type === 'i-text') {
+                        obj.set('fontFamily', 'CustomFont');
+                        canvas.renderAll();
+                    }
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function bringToFront() { canvas.getActiveObject()?.bringToFront(); canvas.renderAll(); }
+        function sendToBack() { 
+            const obj = canvas.getActiveObject();
+            if(obj && !obj.isBg) { obj.sendToBack(); canvas.renderAll(); }
+        }
+        function deleteSelected() { 
+            canvas.remove(...canvas.getActiveObjects()); 
+            canvas.discardActiveObject(); 
+            canvas.renderAll(); 
+        }
+    </script>
+</body>
+</html>
