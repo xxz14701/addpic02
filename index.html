@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="shortcut icon" href="01.png">
     <title>創意表情設計器</title>
-    <!-- 基礎庫 -->
+    
+    <!-- 基礎庫：Fabric.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-    <!-- GIF 處理庫 -->
-    <script id="gifshot-script" src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.4.5/gifshot.min.js"></script>
+    
+    <!-- GIF 處理庫：設定主要與備用來源 -->
+    <script id="gifshot-main" src="https://cdnjs.cloudflare.com/ajax/libs/gifshot/0.4.5/gifshot.min.js"></script>
     
     <style>
         :root {
@@ -197,7 +199,7 @@
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        #fileInput, #fontInput { display: none; }
+        #fileInput { display: none; }
     </style>
 </head>
 <body>
@@ -257,6 +259,16 @@
     </div>
 
     <script>
+        // 備用腳本加載機制
+        window.addEventListener('error', function(e) {
+            if (e.target.id === 'gifshot-main') {
+                console.log('主要 GIF 庫加載失敗，切換至備用來源...');
+                const backup = document.createElement('script');
+                backup.src = 'https://cdn.jsdelivr.net/npm/gifshot@0.4.5/dist/gifshot.min.js';
+                document.head.appendChild(backup);
+            }
+        }, true);
+
         const pagesBase = 'https://xxz14701.github.io/addpic02/images/';
         const assetManifest = {
             ears: ['ear_01.png', 'ear_02.png', 'ear_03.png', 'ear_04.png', 'ear_05.png', 'ear_06.png', 'ear_07.png', 'ear_08.png', 'ear_09.png', 'ear_010.png', 'ear_011.png', 'ear_012.png', 'ear_013.png', 'ear_014.png'], 
@@ -269,15 +281,17 @@
         let isGifMode = false;
         let baseFileUrl = '';
 
-        // --- 安全性檢查：確保 gifshot 存在 ---
-        function checkGifshot() {
-            return typeof gifshot !== 'undefined';
-        }
-
         window.onload = function() {
-            // 修正 Fabric.js 的 baseline 警告
-            fabric.IText.prototype.textAlign = 'left'; 
-            
+            // 修正 Fabric 效能警告
+            const originalGetContext = HTMLCanvasElement.prototype.getContext;
+            HTMLCanvasElement.prototype.getContext = function(type, options) {
+                if (type === '2d') {
+                    options = options || {};
+                    options.willReadFrequently = true;
+                }
+                return originalGetContext.call(this, type, options);
+            };
+
             canvas = new fabric.Canvas('mainCanvas', { 
                 preserveObjectStacking: true,
                 backgroundColor: 'transparent'
@@ -318,16 +332,16 @@
             if (!baseFileUrl && canvas.getObjects().length === 0) return alert("還沒上傳底圖或添加裝飾喔！");
 
             if (isGifMode) {
-                if (!checkGifshot()) {
-                    alert("GIF 合成組件載入失敗，請重新整理頁面。若持續失敗，請確認網路是否能連線至 cdnjs。");
+                if (typeof gifshot === 'undefined') {
+                    alert("GIF 處理組件尚未載入完成。這可能是因為連線至外部腳本庫被阻擋，建議您將 gifshot.min.js 下載後放到您的 GitHub 專案中。");
                     return;
                 }
 
                 document.getElementById('loadingOverlay').style.display = 'flex';
-                document.getElementById('loadingText').innerText = "正在合成 GIF 動圖...";
+                document.getElementById('loadingText').innerText = "正在合成 GIF 動圖 (這可能需要 10-20 秒)...";
 
                 canvas.discardActiveObject();
-                // 暫時隱藏背景圖層進行截圖
+                // 暫時隱藏底圖圖層，只擷取裝飾層
                 const bgs = canvas.getObjects().filter(o => o.isBg);
                 bgs.forEach(b => b.visible = false);
                 canvas.renderAll();
@@ -336,10 +350,11 @@
                 canvas.renderAll();
 
                 gifshot.createGIF({
-                    gifWidth: 370, gifHeight: 320,
-                    images: [baseFileUrl],
-                    video: [baseFileUrl],
-                    numFrames: 10, interval: 0.1,
+                    gifWidth: 370, 
+                    gifHeight: 320,
+                    video: [baseFileUrl], // GIF 底圖作為來源
+                    numFrames: 10, 
+                    interval: 0.1,
                     overlay: [overlay]
                 }, function(obj) {
                     document.getElementById('loadingOverlay').style.display = 'none';
@@ -349,7 +364,7 @@
                         link.href = obj.image;
                         link.click();
                     } else {
-                        alert("合成出錯：" + obj.errorMsg);
+                        alert("合成失敗：" + obj.errorMsg);
                     }
                 });
             } else {
@@ -392,7 +407,7 @@
             const t = new fabric.IText(document.getElementById('textInput').value, {
                 left: 185, top: 160, originX: 'center', originY: 'center',
                 fontSize: 50, fill: document.getElementById('textColor').value,
-                fontWeight: 'bold'
+                fontWeight: 'bold', fontFamily: 'sans-serif'
             });
             canvas.add(t);
             canvas.setActiveObject(t);
