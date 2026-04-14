@@ -433,7 +433,7 @@
             reader.onload = function(f) {
                 fabric.Image.fromURL(f.target.result, function(img) {
                     if (img.width > 350) img.scaleToWidth(350);
-                    img.set({ left: 185, top: 160, originX: 'center', originY: 'center' });
+                    img.set({ left: 185, top: 160, originX: 'center', originY: 'center', cornerColor: '#00008B', cornerSize: 12, transparentCorners: false });
                     canvas.add(img);
                     canvas.setActiveObject(img);
                     canvas.renderAll();
